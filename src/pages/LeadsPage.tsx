@@ -1,25 +1,27 @@
 import { useState } from 'react';
 import { useStore, type Lead } from '@/store/useStore';
-import { Plus, Minus, Briefcase, User, X, Clock, Trash2 } from 'lucide-react';
+import { Plus, Minus, Briefcase, User, Clock, Trash2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Underline } from '@/components/HandDrawn';
 
 const STATUS_CONFIG = {
-  new: { label: 'Написал', color: 'bg-zinc-500', text: 'text-zinc-500' },
-  responded: { label: 'Ответил', color: 'bg-yellow-500', text: 'text-yellow-500' },
-  interview: { label: 'Собеседование', color: 'bg-green-500', text: 'text-green-500' },
-  rejected: { label: 'Отказ', color: 'bg-red-500', text: 'text-red-500' },
+  new: { label: 'Написал', color: 'bg-zinc-500', text: 'text-zinc-500', border: 'border-zinc-500/20' },
+  responded: { label: 'Ответил', color: 'bg-yellow-500', text: 'text-yellow-500', border: 'border-yellow-500/20' },
+  interview: { label: 'Собес', color: 'bg-green-500', text: 'text-green-500', border: 'border-green-500/20' },
+  rejected: { label: 'Отказ', color: 'bg-red-500', text: 'text-red-500', border: 'border-red-500/20' },
 };
 
 export default function LeadsPage() {
   const { 
     counters, leads, 
-    addCounter, incrementCounter, decrementCounter, toggleCounterType,
-    addLead, updateLead, deleteLead, addLeadHistory
+    addCounter, incrementCounter, decrementCounter, toggleCounterType, updateCounterName,
+    addLead, updateLead, deleteLead
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'counters' | 'crm'>('counters');
-  const [crmFilter, setCrmFilter] = useState<'all' | 'responded' | 'interview' | 'rejected'>('all');
+  const [crmFilter, setCrmFilter] = useState<'all' | 'new' | 'responded' | 'interview' | 'rejected'>('all');
   
   // Sheet States
   const [isLeadSheetOpen, setIsLeadSheetOpen] = useState(false);
@@ -30,54 +32,75 @@ export default function LeadsPage() {
 
   // --- Counters Section ---
   const renderCounters = () => (
-    <div className="p-4 space-y-4 pb-24">
-       <div className="flex justify-between items-center mb-4">
-         <h2 className="text-xl font-bold">Счётчики</h2>
-         <button 
+    <div className="p-4 space-y-4 pb-32">
+       <div className="flex justify-between items-center mb-2">
+         <div className="relative">
+           <h2 className="text-2xl font-bold text-white relative z-10">Счётчики</h2>
+           <Underline className="absolute -bottom-1 left-0 w-full h-3 text-blue-500/50" />
+         </div>
+         <motion.button 
+            whileTap={{ scale: 0.95 }}
             onClick={() => addCounter('New Counter', 'work')}
             disabled={counters.length >= 15}
-            className="text-primary text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2 bg-white text-black rounded-xl text-sm font-semibold disabled:opacity-50"
          >
            + Добавить
-         </button>
+         </motion.button>
        </div>
        
-       <div className="space-y-3">
+       <div className="grid gap-4">
          {counters.map(counter => (
-           <div key={counter.id} className="bg-card p-4 rounded-xl border border-border flex flex-col gap-3">
-             <div className="flex justify-between items-start">
+           <motion.div 
+             layout
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             key={counter.id} 
+             className="bg-card/50 backdrop-blur-sm p-5 rounded-3xl border border-white/5 flex flex-col gap-4 shadow-lg relative overflow-hidden"
+           >
+             {/* Background glow based on type */}
+             <div className={cn(
+               "absolute top-0 right-0 w-32 h-32 bg-gradient-to-br opacity-10 blur-2xl rounded-full -mr-10 -mt-10",
+               counter.type === 'work' ? "from-blue-500 to-indigo-500" : "from-purple-500 to-pink-500"
+             )} />
+
+             <div className="flex justify-between items-start relative z-10">
                <input 
-                 className="bg-transparent font-medium focus:outline-none border-b border-transparent focus:border-primary w-2/3"
-                 defaultValue={counter.name}
-                 // In a real app we'd bind onChange to update name in store
+                 className="bg-transparent text-lg font-medium focus:outline-none border-b border-transparent focus:border-white/20 w-2/3 text-white placeholder:text-zinc-600"
+                 value={counter.name}
+                 onChange={(e) => updateCounterName(counter.id, e.target.value)}
+                 placeholder="Название..."
                />
-               <button 
+               <motion.button 
+                 whileTap={{ scale: 0.9 }}
                  onClick={() => toggleCounterType(counter.id)}
                  className={cn(
-                   "p-1.5 rounded-md transition-colors",
-                   counter.type === 'work' ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"
+                   "p-2 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold",
+                   counter.type === 'work' ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"
                  )}
                >
-                 {counter.type === 'work' ? <Briefcase size={16} /> : <User size={16} />}
-               </button>
+                 {counter.type === 'work' ? <Briefcase size={14} /> : <User size={14} />}
+                 {counter.type === 'work' ? 'Рабочий' : 'Личный'}
+               </motion.button>
              </div>
              
-             <div className="flex items-center justify-between mt-2">
-               <button 
+             <div className="flex items-center justify-between mt-2 relative z-10">
+               <motion.button 
+                 whileTap={{ scale: 0.8 }}
                  onClick={() => decrementCounter(counter.id)}
-                 className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center active:scale-95"
+                 className="w-12 h-12 rounded-2xl bg-zinc-800/80 border border-white/5 flex items-center justify-center text-white hover:bg-zinc-700 transition-colors"
                >
-                 <Minus size={20} />
-               </button>
-               <span className="text-3xl font-bold font-mono">{counter.value}</span>
-               <button 
+                 <Minus size={24} />
+               </motion.button>
+               <span className="text-4xl font-bold font-mono text-white tabular-nums tracking-tighter">{counter.value}</span>
+               <motion.button 
+                 whileTap={{ scale: 0.8 }}
                  onClick={() => incrementCounter(counter.id)}
-                 className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95"
+                 className="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center hover:bg-zinc-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.3)]"
                >
-                 <Plus size={20} />
-               </button>
+                 <Plus size={24} />
+               </motion.button>
              </div>
-           </div>
+           </motion.div>
          ))}
        </div>
     </div>
@@ -99,212 +122,248 @@ export default function LeadsPage() {
     if (selectedLead) {
       updateLead(selectedLead.id, formData);
     } else {
-      addLead(formData as Lead);
+      addLead({
+        name: formData.name || 'New Lead',
+        link: formData.link,
+        status: formData.status as any,
+        notes: formData.notes,
+        firstContactDate: formData.firstContactDate || new Date().toISOString(),
+      });
     }
     setIsLeadSheetOpen(false);
   };
-  
+
   const handleDeleteLead = () => {
     if (selectedLead) {
-        deleteLead(selectedLead.id);
-        setIsLeadSheetOpen(false);
+      deleteLead(selectedLead.id);
+      setIsLeadSheetOpen(false);
     }
-  }
+  };
 
   const renderCRM = () => (
     <div className="flex flex-col h-full">
-      {/* Filters */}
-      <div className="flex gap-2 p-4 overflow-x-auto border-b border-border no-scrollbar">
-        {(['all', 'responded', 'interview', 'rejected'] as const).map(f => (
-           <button
-             key={f}
-             onClick={() => setCrmFilter(f)}
-             className={cn(
-               "px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors",
-               crmFilter === f ? "bg-white text-black font-medium" : "bg-secondary text-muted-foreground"
-             )}
-           >
-             {f === 'all' ? 'Все' : STATUS_CONFIG[f]?.label || f}
-           </button>
-        ))}
+      <div className="px-4 py-4 space-y-4">
+        <div className="flex justify-between items-center">
+            <div className="relative">
+                <h2 className="text-2xl font-bold text-white relative z-10">CRM</h2>
+                <Underline className="absolute -bottom-1 left-0 w-full h-3 text-purple-500/50" />
+            </div>
+            <motion.button 
+                whileTap={{ scale: 0.95 }}
+                onClick={() => openLeadSheet()}
+                className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black shadow-lg"
+            >
+                <Plus size={24} />
+            </motion.button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+            {[
+                { id: 'all', label: 'Все' },
+                { id: 'new', label: 'Написал' },
+                { id: 'responded', label: 'Ответил' },
+                { id: 'interview', label: 'Собес' },
+                { id: 'rejected', label: 'Отказ' },
+            ].map((f) => (
+                <button
+                    key={f.id}
+                    onClick={() => setCrmFilter(f.id as any)}
+                    className={cn(
+                        "px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border",
+                        crmFilter === f.id 
+                            ? "bg-white text-black border-white" 
+                            : "bg-transparent text-zinc-500 border-zinc-800 hover:border-zinc-700"
+                    )}
+                >
+                    {f.label}
+                </button>
+            ))}
+        </div>
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
-         {filteredLeads.map(lead => (
-           <div 
-             key={lead.id} 
-             onClick={() => openLeadSheet(lead)}
-             className="bg-card p-4 rounded-xl border border-border flex items-center gap-3 active:bg-white/5"
-           >
-             <div className={cn("w-3 h-3 rounded-full shrink-0", STATUS_CONFIG[lead.status].color)} />
-             <div className="flex-1 min-w-0">
-               <h3 className="font-medium truncate">{lead.name || 'Без имени'}</h3>
-               <p className="text-xs text-muted-foreground truncate">{lead.link}</p>
-             </div>
-             <div className="text-xs text-muted-foreground whitespace-nowrap">
-               {lead.firstContactDate ? format(new Date(lead.firstContactDate), 'd MMM') : ''}
-             </div>
-           </div>
-         ))}
-         
-         {filteredLeads.length === 0 && (
-            <div className="text-center text-muted-foreground mt-10">Нет лидов</div>
-         )}
+      <div className="flex-1 overflow-y-auto px-4 pb-32 space-y-3">
+        {filteredLeads.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-zinc-600">
+                <Search size={48} className="mb-4 opacity-20" />
+                <p>Нет лидов</p>
+            </div>
+        ) : (
+            filteredLeads.map(lead => (
+                <motion.div
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    key={lead.id}
+                    onClick={() => openLeadSheet(lead)}
+                    className="bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-white/5 active:scale-[0.98] transition-transform"
+                >
+                    <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-semibold text-white text-lg">{lead.name}</h3>
+                        <span className={cn(
+                            "px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border",
+                            STATUS_CONFIG[lead.status]?.text,
+                            STATUS_CONFIG[lead.status]?.border,
+                            "bg-transparent"
+                        )}>
+                            {STATUS_CONFIG[lead.status]?.label}
+                        </span>
+                    </div>
+                    {lead.link && (
+                        <a href={lead.link} target="_blank" onClick={e => e.stopPropagation()} className="text-xs text-blue-400 hover:underline block mb-2 truncate">
+                            {lead.link}
+                        </a>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                        <Clock size={12} />
+                        <span>{lead.firstContactDate ? format(new Date(lead.firstContactDate), 'dd MMM yyyy') : 'No date'}</span>
+                    </div>
+                </motion.div>
+            ))
+        )}
       </div>
-
-      {/* FAB */}
-      <button 
-        onClick={() => openLeadSheet()}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center active:scale-95 z-10"
-      >
-        <Plus size={24} />
-      </button>
     </div>
   );
 
   return (
-    <div className="h-full flex flex-col bg-background text-foreground">
-      {/* Top Toggle */}
-      <div className="p-4 pb-0">
-        <div className="flex bg-secondary rounded-lg p-1">
-          <button 
+    <div className="h-full flex flex-col bg-background pt-safe-top">
+      {/* Top Tabs */}
+      <div className="flex p-2 bg-card/30 backdrop-blur-md mx-4 mt-2 rounded-2xl border border-white/5">
+        <button
             onClick={() => setActiveTab('counters')}
-            className={cn("flex-1 py-2 rounded-md text-sm font-medium transition-all", activeTab === 'counters' ? "bg-card shadow text-foreground" : "text-muted-foreground")}
-          >
+            className={cn(
+                "flex-1 py-2 rounded-xl text-sm font-semibold transition-all",
+                activeTab === 'counters' ? "bg-white text-black shadow-md" : "text-zinc-500 hover:text-white"
+            )}
+        >
             Счётчики
-          </button>
-          <button 
+        </button>
+        <button
             onClick={() => setActiveTab('crm')}
-            className={cn("flex-1 py-2 rounded-md text-sm font-medium transition-all", activeTab === 'crm' ? "bg-card shadow text-foreground" : "text-muted-foreground")}
-          >
+            className={cn(
+                "flex-1 py-2 rounded-xl text-sm font-semibold transition-all",
+                activeTab === 'crm' ? "bg-white text-black shadow-md" : "text-zinc-500 hover:text-white"
+            )}
+        >
             CRM
-          </button>
-        </div>
+        </button>
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'counters' ? renderCounters() : renderCRM()}
+        <AnimatePresence mode="wait">
+            {activeTab === 'counters' ? (
+                <motion.div 
+                    key="counters"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="h-full overflow-y-auto"
+                >
+                    {renderCounters()}
+                </motion.div>
+            ) : (
+                <motion.div 
+                    key="crm"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="h-full overflow-hidden"
+                >
+                    {renderCRM()}
+                </motion.div>
+            )}
+        </AnimatePresence>
       </div>
 
-      {/* Lead Sheet */}
-      {isLeadSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setIsLeadSheetOpen(false)}>
-           <div 
-             className="bg-zinc-900 w-full rounded-t-2xl p-6 h-[85vh] overflow-y-auto border-t border-white/10 flex flex-col"
-             onClick={e => e.stopPropagation()}
-           >
-              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-xl font-bold">{selectedLead ? 'Редактировать' : 'Новый лид'}</h2>
-                 <button onClick={() => setIsLeadSheetOpen(false)}><X /></button>
-              </div>
-
-              <div className="space-y-4 flex-1">
-                 {/* Status Selector */}
-                 <div className="grid grid-cols-4 gap-2">
-                    {(Object.keys(STATUS_CONFIG) as Array<keyof typeof STATUS_CONFIG>).map(s => (
-                        <button
-                            key={s}
-                            onClick={() => setFormData({...formData, status: s})}
-                            className={cn(
-                                "h-8 rounded text-xs font-medium border border-transparent",
-                                formData.status === s ? STATUS_CONFIG[s].color + " text-white" : "bg-secondary text-muted-foreground"
-                            )}
-                        >
-                            {STATUS_CONFIG[s].label}
-                        </button>
-                    ))}
-                 </div>
-
-                 <input 
-                    placeholder="Имя / Название"
-                    className="w-full bg-zinc-800 p-3 rounded-lg focus:ring-1 focus:ring-primary outline-none"
-                    value={formData.name || ''}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                 />
-                 <input 
-                    placeholder="Ссылка (Telegram/LinkedIn)"
-                    className="w-full bg-zinc-800 p-3 rounded-lg focus:ring-1 focus:ring-primary outline-none"
-                    value={formData.link || ''}
-                    onChange={e => setFormData({...formData, link: e.target.value})}
-                 />
-                 
-                 <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Дата первого контакта</label>
-                    <input 
-                        type="date"
-                        className="w-full bg-zinc-800 p-3 rounded-lg focus:ring-1 focus:ring-primary outline-none text-white"
-                        value={formData.firstContactDate ? formData.firstContactDate.split('T')[0] : ''}
-                        onChange={e => setFormData({...formData, firstContactDate: e.target.value})}
-                    />
-                 </div>
-
-                 <textarea 
-                    placeholder="Заметки..."
-                    className="w-full bg-zinc-800 p-3 rounded-lg focus:ring-1 focus:ring-primary outline-none h-24 resize-none"
-                    value={formData.notes || ''}
-                    onChange={e => setFormData({...formData, notes: e.target.value})}
-                 />
-                 
-                 {selectedLead && (
-                     <div className="mt-6">
-                        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                            <Clock size={16} /> История действий
+      {/* Lead Bottom Sheet */}
+      <AnimatePresence>
+        {isLeadSheetOpen && (
+            <>
+                <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                    onClick={() => setIsLeadSheetOpen(false)}
+                />
+                <motion.div 
+                    initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className="fixed bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl border-t border-white/10 z-50 p-6 pb-safe overflow-y-auto"
+                    style={{ maxHeight: '90vh' }}
+                >
+                    <div className="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-6" />
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-white">
+                            {selectedLead ? 'Редактировать' : 'Новый лид'}
                         </h3>
-                        <div className="space-y-3 pl-2 border-l border-zinc-700 ml-2">
-                            {selectedLead.history?.map(h => (
-                                <div key={h.id} className="relative pl-4">
-                                    <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 bg-zinc-600 rounded-full border-2 border-zinc-900" />
-                                    <p className="text-sm">{h.action}</p>
-                                    <span className="text-xs text-muted-foreground">{format(new Date(h.timestamp), 'd MMM HH:mm')}</span>
-                                </div>
-                            ))}
-                            <div className="pl-4 pt-2">
-                                <button 
-                                    className="text-xs text-primary font-medium"
-                                    onClick={() => {
-                                        const action = prompt("Действие:");
-                                        if (action && selectedLead) {
-                                            addLeadHistory(selectedLead.id, action);
-                                            // Optimistic update local form data history display?
-                                            // Ideally we just call store and it updates 'leads', but 'selectedLead' is local state copy? 
-                                            // No, selectedLead was set once. We should rely on store data or re-sync.
-                                            // For simplicity, I will just close sheet or reload selectedLead from store if I was reactive.
-                                            // But since selectedLead is just a snapshot, let's close to refresh or manual update.
-                                            // Actually, easier to just not show history adding here or do it properly.
-                                            // Let's implement history adding in the store and update `selectedLead` if possible.
-                                            // Since I can't easily subscribe `selectedLead` to store updates without `useEffect`, I'll skip dynamic update in this view for now or rely on closing/opening.
-                                            // But wait, `addLeadHistory` updates the store. 
-                                        }
-                                    }}
-                                >
-                                    + Добавить событие
-                                </button>
+                        {selectedLead && (
+                            <button onClick={handleDeleteLead} className="p-2 bg-red-500/10 text-red-500 rounded-xl">
+                                <Trash2 size={20} />
+                            </button>
+                        )}
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-xs text-zinc-500 font-medium ml-1">Статус</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                {(Object.keys(STATUS_CONFIG) as Array<keyof typeof STATUS_CONFIG>).map((status) => (
+                                    <button
+                                        key={status}
+                                        onClick={() => setFormData({ ...formData, status })}
+                                        className={cn(
+                                            "py-2 rounded-xl text-[10px] font-bold uppercase border transition-all",
+                                            formData.status === status
+                                                ? cn(STATUS_CONFIG[status].color, "text-white border-transparent")
+                                                : "bg-transparent border-zinc-800 text-zinc-500"
+                                        )}
+                                    >
+                                        {STATUS_CONFIG[status].label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                     </div>
-                 )}
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                  {selectedLead && (
-                      <button 
-                        onClick={handleDeleteLead}
-                        className="p-3 bg-red-500/10 text-red-500 rounded-lg"
-                      >
-                          <Trash2 size={20} />
-                      </button>
-                  )}
-                  <button 
-                    onClick={handleSaveLead}
-                    className="flex-1 bg-white text-black font-bold py-3 rounded-lg"
-                  >
-                    Сохранить
-                  </button>
-              </div>
-           </div>
-        </div>
-      )}
+
+                        <div className="space-y-2">
+                            <label className="text-xs text-zinc-500 font-medium ml-1">Имя</label>
+                            <input 
+                                className="w-full bg-zinc-950/50 p-4 rounded-xl border border-white/5 text-white focus:border-white/20 outline-none"
+                                placeholder="Имя лида"
+                                value={formData.name || ''}
+                                onChange={e => setFormData({...formData, name: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs text-zinc-500 font-medium ml-1">Ссылка (TG/LinkedIn)</label>
+                            <input 
+                                className="w-full bg-zinc-950/50 p-4 rounded-xl border border-white/5 text-white focus:border-white/20 outline-none"
+                                placeholder="https://..."
+                                value={formData.link || ''}
+                                onChange={e => setFormData({...formData, link: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs text-zinc-500 font-medium ml-1">Заметки</label>
+                            <textarea 
+                                className="w-full h-24 bg-zinc-950/50 p-4 rounded-xl border border-white/5 text-white focus:border-white/20 outline-none resize-none"
+                                placeholder="Детали..."
+                                value={formData.notes || ''}
+                                onChange={e => setFormData({...formData, notes: e.target.value})}
+                            />
+                        </div>
+
+                        <button 
+                            onClick={handleSaveLead}
+                            className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg active:scale-95 transition-transform mt-4"
+                        >
+                            Сохранить
+                        </button>
+                    </div>
+                </motion.div>
+            </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

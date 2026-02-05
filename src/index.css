@@ -4,44 +4,60 @@
 
 @layer base {
   :root {
-    /* Fallback Dark Theme (Default) if not in TG or variables missing */
-    --background: 240 10% 3.9%;
+    /* Deep Zinc/Slate Dark Theme */
+    --background: 240 10% 4%; /* #09090b - Zinc 950 base */
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+
+    --card: 240 10% 6%; /* #101012 - Slightly lighter than bg */
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+
+    --popover: 240 10% 6%;
     --popover-foreground: 0 0% 98%;
+
     --primary: 0 0% 98%;
     --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
+
+    --secondary: 240 4% 16%; /* Zinc 800 */
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
+
+    --muted: 240 4% 16%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
+
+    --accent: 240 4% 16%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+
+    --destructive: 0 84% 60%; /* Red 500 for better visibility */
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
+
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
     --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --radius: 0.5rem;
+
+    --radius: 0.75rem; /* 12px for softer corners */
+    
+    /* Custom Status Colors */
+    --status-good: 142 71% 45%; /* Green 500 */
+    --status-bad: 0 84% 60%;   /* Red 500 */
+    --status-neutral: 240 5% 64.9%;
   }
 
-  /* Override with Telegram Variables if present */
-  /* We use a class .telegram-web-app usually, or just rely on global vars injected by TG */
-  /* But shadcn uses HSL. Telegram gives hex. We can't direct map var(--tg-theme-bg-color) to --background which expects HSL channels. */
-  /* So we will stick to the default dark theme for now, and maybe add a script to sync TG theme later if strictly needed to be exact match. */
-  /* Given the requirement "Dark theme default", I will hardcode a nice dark theme first. */
-  
   * {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased selection:bg-white/10 selection:text-white;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl border-t border-white/5;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

@@ -1,34 +1,68 @@
+import { motion } from 'framer-motion';
+
 export const StrikeThrough = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 100 100"
-    className={className}
+  <svg 
+    viewBox="0 0 100 100" 
+    className={className} 
     preserveAspectRatio="none"
-    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}
   >
-    <path
-      d="M 10,80 Q 50,20 90,30"
+    <motion.path
+      d="M5 85 Q 30 70, 50 80 T 95 75"
       fill="none"
       stroke="currentColor"
       strokeWidth="4"
       strokeLinecap="round"
-      className="opacity-80"
+      initial={{ pathLength: 0, opacity: 0 }}
+      animate={{ pathLength: 1, opacity: 0.8 }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
     />
   </svg>
 );
 
 export const Cross = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 100 100"
+  <svg 
+    viewBox="0 0 100 100" 
     className={className}
-    style={{ position: 'absolute', top: '10%', left: '10%', width: '80%', height: '80%', pointerEvents: 'none' }}
+    style={{ overflow: 'visible' }}
   >
-    <path
-      d="M 10,10 L 90,90 M 90,10 L 10,90"
+    <motion.path
+      d="M20 20 L80 80"
       fill="none"
       stroke="currentColor"
-      strokeWidth="8"
+      strokeWidth="6"
       strokeLinecap="round"
-      className="opacity-80"
+      initial={{ pathLength: 0, opacity: 0 }}
+      animate={{ pathLength: 1, opacity: 0.8 }}
+      transition={{ duration: 0.3 }}
+    />
+    <motion.path
+      d="M80 20 L20 80"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="6"
+      strokeLinecap="round"
+      initial={{ pathLength: 0, opacity: 0 }}
+      animate={{ pathLength: 1, opacity: 0.8 }}
+      transition={{ duration: 0.3, delay: 0.15 }}
+    />
+  </svg>
+);
+
+export const Underline = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 200 20" 
+    className={className} 
+    preserveAspectRatio="none"
+  >
+    <motion.path
+      d="M5 10 Q 50 15, 100 5 T 195 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      initial={{ pathLength: 0, opacity: 0 }}
+      animate={{ pathLength: 1, opacity: 1 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
     />
   </svg>
 );

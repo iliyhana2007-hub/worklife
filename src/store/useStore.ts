@@ -48,6 +48,7 @@ export interface AppState {
   leads: Lead[];
   addCounter: (name: string, type: 'work' | 'personal') => void;
   toggleCounterType: (id: string) => void;
+  updateCounterName: (id: string, name: string) => void;
   incrementCounter: (id: string) => void;
   decrementCounter: (id: string) => void;
   
@@ -101,6 +102,12 @@ export const useStore = create<AppState>()(
         set((state) => ({
           counters: state.counters.map((c) =>
             c.id === id ? { ...c, type: c.type === 'work' ? 'personal' : 'work' } : c
+          ),
+        })),
+      updateCounterName: (id, name) =>
+        set((state) => ({
+          counters: state.counters.map((c) =>
+            c.id === id ? { ...c, name } : c
           ),
         })),
       incrementCounter: (id) =>
