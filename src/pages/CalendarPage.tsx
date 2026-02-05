@@ -25,19 +25,19 @@ const StatsWidget = ({
   return (
     <button 
       onClick={onToggle}
-      className="flex items-center justify-center gap-6 py-2 w-full active:opacity-70 transition-opacity"
+      className="flex items-center justify-center gap-4 py-2 w-full active:opacity-70 transition-opacity"
     >
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-white" />
-        <span className="text-white font-medium text-lg">{display(stats.good)}</span>
+        <span className="text-white font-medium text-base">{display(stats.good)}</span>
       </div>
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-red-500" />
-        <span className="text-red-500 font-medium text-lg">{display(stats.bad)}</span>
+        <span className="text-red-500 font-medium text-base">{display(stats.bad)}</span>
       </div>
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full border border-zinc-700" />
-        <span className="text-zinc-500 font-medium text-lg">{display(stats.neutral)}</span>
+        <span className="text-zinc-500 font-medium text-base">{display(stats.neutral)}</span>
       </div>
     </button>
   );
@@ -128,14 +128,14 @@ const MonthView = ({
   return (
     <div className="flex flex-col mb-8" data-month={format(monthDate, 'yyyy-MM')}>
       {/* Month Name Header (Sticky) - iOS Style Large Title */}
-      <div className="px-4 py-3 sticky top-0 bg-black/95 backdrop-blur-sm z-30">
-        <span className="text-white font-bold text-4xl capitalize">
+      <div className="px-4 py-2 sticky top-0 bg-black/95 backdrop-blur-sm z-30">
+        <span className="text-white font-bold text-3xl capitalize">
           {format(monthDate, 'LLLL', { locale: ru })}
         </span>
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex-1 mt-2">
+      <div className="flex-1 mt-1">
         {weeks.map((week, weekIndex) => {
             // Check if week is fully in past or partially
             let firstPastIdx = -1;
@@ -151,7 +151,7 @@ const MonthView = ({
             const showLine = firstPastIdx !== -1;
             
             return (
-                <div key={weekIndex} className="grid grid-cols-7 auto-rows-[48px] relative">
+                <div key={weekIndex} className="grid grid-cols-7 auto-rows-[42px] relative">
                     {/* Row Strikethrough Overlay */}
                     {showLine && (
                         <div 
@@ -187,7 +187,7 @@ const MonthView = ({
                               whileTap={{ scale: 0.9 }}
                               onClick={(e) => onCycleStatus(date, e)}
                               className={cn(
-                                "w-9 h-9 flex items-center justify-center rounded-full text-[19px] font-normal transition-all duration-200 relative z-10",
+                                "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 relative z-10",
                                 status === 'neutral' && isTodayDate && "border border-white text-white font-semibold", 
                                 status === 'neutral' && !isTodayDate && "text-white",
                                 status === 'good' && "bg-white text-black font-semibold", 
@@ -551,30 +551,39 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col h-full bg-black text-white">
       {/* iOS Header */}
-      <div className="flex justify-between items-center px-4 pb-2 pt-safe min-h-[50px]">
-        {view === 'month' ? (
-             <button 
-                onClick={() => setView('year')}
-                className="flex items-center text-red-500 gap-1 active:opacity-60 transition-opacity"
-            >
-                <ChevronLeft size={26} strokeWidth={2.5} className="-ml-2" />
-                <span className="text-xl font-normal tracking-tight">{format(currentDate, 'yyyy')}</span>
-            </button>
-        ) : (
-            <button 
-                onClick={() => setView('month')}
-                className="flex flex-col items-start"
-            >
-                <span className="text-red-500 text-sm font-medium mb-0.5">
-                    {format(currentDate, 'yyyy')}
-                </span>
-                <span className="text-3xl font-bold tracking-tight capitalize">
-                    {format(currentDate, 'yyyy')}
-                </span>
-            </button>
-        )}
+      <div className="flex items-center px-4 pb-2 pt-safe min-h-[50px]">
+        {/* Left Side */}
+        <div className="flex-1 flex justify-start min-w-0">
+            {view === 'year' && (
+                <button 
+                    onClick={() => setView('month')}
+                    className="flex flex-col items-start"
+                >
+                    <span className="text-red-500 text-xs font-medium mb-0.5">
+                        {format(currentDate, 'yyyy')}
+                    </span>
+                    <span className="text-3xl font-bold tracking-tight capitalize">
+                        {format(currentDate, 'yyyy')}
+                    </span>
+                </button>
+            )}
+        </div>
 
-        <div className="flex gap-4 items-center">
+        {/* Center Side */}
+        <div className="flex-none flex justify-center">
+            {view === 'month' && (
+                 <button 
+                    onClick={() => setView('year')}
+                    className="flex items-center text-red-500 gap-1 active:opacity-60 transition-opacity"
+                >
+                    <ChevronLeft size={20} strokeWidth={2.5} />
+                    <span className="text-lg font-medium tracking-tight">{format(currentDate, 'yyyy')}</span>
+                </button>
+            )}
+        </div>
+
+        {/* Right Side */}
+        <div className="flex-1 flex justify-end items-center gap-4 min-w-0">
             {/* Toggle Mini Notes (Only for Year View) */}
             {view === 'year' && (
                 <button 
@@ -605,7 +614,6 @@ export default function CalendarPage() {
                     </button>
                 </>
             )}
-            {/* Month View specific controls if any (currently none needed) */}
         </div>
       </div>
 
@@ -624,7 +632,7 @@ export default function CalendarPage() {
           {view === 'month' && (
              <div className="grid grid-cols-7 py-2 border-b border-zinc-800 bg-black">
                 {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(d => (
-                    <div key={d} className="text-center text-[11px] font-semibold text-zinc-500 uppercase">{d}</div>
+                    <div key={d} className="text-center text-[10px] font-semibold text-zinc-500 uppercase">{d}</div>
                 ))}
              </div>
           )}
