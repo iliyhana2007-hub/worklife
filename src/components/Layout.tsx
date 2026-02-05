@@ -29,32 +29,26 @@ export default function Layout() {
         </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 glass pb-safe z-50">
-        <div className="flex justify-around items-center h-[88px] pb-4">
+      <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-xl border-t border-zinc-800 pb-safe z-50">
+        <div className="flex justify-around items-center h-[50px] pt-1">
           {tabs.map((tab) => {
             const isActive = location.pathname.startsWith(tab.path);
             return (
               <button
                 key={tab.id}
                 onClick={() => navigate(tab.path)}
-                className="relative flex flex-col items-center justify-center w-full h-full group"
+                className="flex flex-col items-center justify-center w-full h-full active:opacity-70 transition-opacity"
               >
-                <div className={cn(
-                  "relative p-1.5 rounded-xl transition-all duration-300",
-                  isActive ? "bg-white/10 text-white" : "text-zinc-500 group-active:scale-95"
-                )}>
-                  <tab.icon className={cn("w-6 h-6", isActive && "fill-current")} strokeWidth={isActive ? 2.5 : 2} />
-                  {isActive && (
-                    <motion.div
-                      layoutId="nav-glow"
-                      className="absolute inset-0 bg-white/5 rounded-xl blur-lg"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </div>
+                <tab.icon 
+                    className={cn(
+                        "w-7 h-7 mb-0.5", 
+                        isActive ? "text-red-500" : "text-zinc-500"
+                    )} 
+                    strokeWidth={isActive ? 2.5 : 2} 
+                />
                 <span className={cn(
-                  "text-[10px] font-medium mt-1 transition-colors duration-300",
-                  isActive ? "text-white" : "text-zinc-500"
+                  "text-[10px] font-medium",
+                  isActive ? "text-red-500" : "text-zinc-500"
                 )}>
                   {tab.label}
                 </span>

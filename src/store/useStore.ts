@@ -18,8 +18,9 @@ export interface Lead {
   notes?: string;
   status: 'new' | 'responded' | 'interview' | 'rejected';
   history: LeadHistoryItem[];
-  isWork?: boolean; // Derived from counter context when created, or just always true for CRM leads? 
-  // Requirement: "Только рабочие попадают в CRM" -> leads list only contains work leads.
+  isWork?: boolean;
+  sourceCounterId?: string; // Links lead to specific counter
+  createdAt: number; // Timestamp for 15s deletion rule
 }
 
 export interface LeadHistoryItem {
@@ -33,6 +34,7 @@ export interface Counter {
   name: string;
   value: number;
   type: 'work' | 'personal';
+  color?: string; // Hex color
 }
 
 export interface AppState {
@@ -46,14 +48,15 @@ export interface AppState {
   // Leads / Counters
   counters: Counter[];
   leads: Lead[];
-  addCounter: (name: string, type: 'work' | 'personal') => void;
+  addCounter: (name: string, type: 'work' | 'personal', color?: string) => void;
   toggleCounterType: (id: string) => void;
   updateCounterName: (id: string, name: string) => void;
+  updateCounterColor: (id: string, color: string) => void;
   incrementCounter: (id: string) => void;
   decrementCounter: (id: string) => void;
   
   // CRM
-  addLead: (lead: Omit<Lead, 'id' | 'history'>) => void;
+  addLead: (lead: Omit<Lead, 'id' | 'history' | 'createdAt'>) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   addLeadHistory: (leadId: string, action: string) => void;
   deleteLead: (id: string) => void;
@@ -65,7 +68,7 @@ export const useStore = create<AppState>()(
       days: {},
       monthNotes: {},
       counters: [
-        { id: '1', name: 'Leads', value: 0, type: 'work' },
+        { id: '1', name: 'Leads', value: 0, type: 'work', color: '#EF4444' },
       ],
       leads: [],
 
@@ -91,11 +94,11 @@ export const useStore = create<AppState>()(
           },
         })),
 
-      addCounter: (name, type) =>
+      addCounter: (name, type, color) =>
         set((state) => {
           if (state.counters.length >= 15) return state;
           return {
-            counters: [...state.counters, { id: uuidv4(), name, value: 0, type }],
+            counters: [...state.counters, { id: uuidv4(), name, value: 0, type, color: color || '#EF4444' }],
           };
         }),
       toggleCounterType: (id) =>
@@ -110,24 +113,77 @@ export const useStore = create<AppState>()(
             c.id === id ? { ...c, name } : c
           ),
         })),
-      incrementCounter: (id) =>
+      updateCounterColor: (id, color) =>
         set((state) => ({
           counters: state.counters.map((c) =>
-            c.id === id ? { ...c, value: c.value + 1 } : c
+            c.id === id ? { ...c, color } : c
           ),
         })),
-      decrementCounter: (id) =>
-        set((state) => ({
-          counters: state.counters.map((c) =>
-            c.id === id ? { ...c, value: c.value - 1 } : c
-          ),
-        })),
+      incrementCounter: (id) => {
+        set((state) => {
+           const counter = state.counters.find(c => c.id === id);
+           if (!counter) return state;
+           
+           // If work counter, auto-create lead
+           let newLeads = state.leads;
+           if (counter.type === 'work') {
+               const newLead: Lead = {
+                   id: uuidv4(),
+                   status: 'new',
+                   history: [],
+                   isWork: true,
+                   sourceCounterId: id,
+                   createdAt: Date.now(),
+                   firstContactDate: new Date().toISOString()
+               };
+               newLeads = [...state.leads, newLead];
+           }
+
+           return {
+             counters: state.counters.map((c) =>
+               c.id === id ? { ...c, value: c.value + 1 } : c
+             ),
+             leads: newLeads
+           };
+        });
+      },
+      decrementCounter: (id) => {
+          set((state) => {
+             const counter = state.counters.find(c => c.id === id);
+             if (!counter) return state;
+             
+             let newLeads = state.leads;
+             if (counter.type === 'work') {
+                 // Find last lead from this counter created < 15s ago
+                 const now = Date.now();
+                 // Reverse search to find the most recent one
+                 const leadsReversed = [...state.leads].reverse();
+                 const leadIndexReversed = leadsReversed.findIndex(l => 
+                     l.sourceCounterId === id && 
+                     (now - l.createdAt) < 15000
+                 );
+                 
+                 if (leadIndexReversed !== -1) {
+                     // Found one to delete
+                     const leadToDelete = leadsReversed[leadIndexReversed];
+                     newLeads = state.leads.filter(l => l.id !== leadToDelete.id);
+                 }
+             }
+
+             return {
+               counters: state.counters.map((c) =>
+                 c.id === id ? { ...c, value: c.value - 1 } : c
+               ),
+               leads: newLeads
+             };
+          });
+      },
 
       addLead: (lead) =>
         set((state) => ({
           leads: [
             ...state.leads,
-            { ...lead, id: uuidv4(), history: [] },
+            { ...lead, id: uuidv4(), history: [], createdAt: Date.now() },
           ],
         })),
       updateLead: (id, updates) =>
@@ -156,7 +212,7 @@ export const useStore = create<AppState>()(
         }))
     }),
     {
-      name: 'worklife-storage',
+      name: 'worklife-storage-v2',
       storage: createJSONStorage(() => telegramStorage),
     }
   )

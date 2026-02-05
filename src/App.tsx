@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import WebApp from '@twa-dev/sdk';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
+import Layout from '@/components/Layout';
 import CalendarPage from './pages/CalendarPage';
 import LeadsPage from './pages/LeadsPage';
 
