@@ -482,7 +482,7 @@ export default function LeadsPage() {
   );
 
   return (
-    <div className="h-full flex flex-col bg-background pt-safe-top">
+    <div className="h-full flex flex-col bg-background pt-safe">
       {/* Top Tabs */}
       <div className="flex p-2 bg-card/30 backdrop-blur-md mx-4 mt-2 rounded-2xl border border-white/5 z-20">
         <button

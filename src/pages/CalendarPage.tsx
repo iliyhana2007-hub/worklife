@@ -551,7 +551,7 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col h-full bg-black text-white">
       {/* iOS Header */}
-      <div className="flex justify-between items-center px-4 pb-2 pt-2 min-h-[50px]">
+      <div className="flex justify-between items-center px-4 pb-2 pt-safe min-h-[50px]">
         {view === 'month' ? (
              <button 
                 onClick={() => setView('year')}
@@ -709,7 +709,7 @@ export default function CalendarPage() {
                             <textarea 
                                 className={cn(
                                     "w-full bg-transparent text-white text-lg leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70",
-                                    isNoteExpanded ? "flex-1" : "h-[220px]"
+                                    isNoteExpanded ? "flex-1" : "h-[140px]"
                                 )}
                                 placeholder="Опишите этот день..."
                                 value={noteContent}

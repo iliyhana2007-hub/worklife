@@ -89,8 +89,7 @@
   
   body {
     @apply bg-background text-foreground antialiased;
-    padding-top: var(--safe-top);
-    padding-bottom: var(--safe-bottom);
+    /* Removed global padding to allow background to fill notch area */
   }
 }
 
@@ -104,4 +103,17 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 20px);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+@utility h-safe-screen {
+  height: 100vh; /* Fallback */
+  height: 100dvh;
 }
