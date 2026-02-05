@@ -155,7 +155,7 @@ export default function LeadsPage() {
 
   // --- Counters Section ---
   const renderCounters = () => (
-    <div className="p-4 space-y-6 pb-32 pt-safe mt-10">
+    <div className="p-4 space-y-6 pb-32">
        {/* Header & Total */}
        <div className="space-y-4">
            <div className="flex justify-between items-center">
@@ -331,8 +331,8 @@ export default function LeadsPage() {
   };
 
   const renderCRM = () => (
-    <div className="flex flex-col h-full pt-safe">
-      <div className="px-4 py-4 space-y-4 mt-10">
+    <div className="flex flex-col h-full">
+      <div className="px-4 py-4 space-y-4">
         <div className="flex justify-between items-center">
             <div className="relative">
                 <h2 className="text-2xl font-bold text-white relative z-10 flex items-center gap-2">
@@ -481,7 +481,7 @@ export default function LeadsPage() {
   return (
     <div className="h-full flex flex-col bg-background pt-safe">
       {/* Top Tabs */}
-      <div className="flex p-2 bg-card/30 backdrop-blur-md mx-4 mt-2 rounded-2xl border border-white/5 z-20">
+      <div className="flex p-2 bg-card/30 backdrop-blur-md mx-4 mt-8 rounded-2xl border border-white/5 z-20">
         <button
             onClick={() => setActiveTab('counters')}
             className={cn(

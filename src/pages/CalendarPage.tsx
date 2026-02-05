@@ -670,7 +670,7 @@ export default function CalendarPage() {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                     className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-                    onClick={() => { setIsNoteOpen(false); setEditingMonthNote(false); setMonthNoteTarget(null); setIsNoteExpanded(false); }}
+                    onClick={() => { setIsNoteOpen(false); setEditingMonthNote(false); setMonthNoteTarget(null); }}
                 >
                     {/* Centered Modal Card */}
                     <motion.div 
@@ -680,17 +680,16 @@ export default function CalendarPage() {
                             opacity: 1, 
                             scale: 1, 
                             y: 0,
-                            width: isNoteExpanded ? "100%" : "100%",
-                            maxWidth: isNoteExpanded ? "100%" : "24rem",
-                            height: isNoteExpanded ? "100%" : "auto",
-                            borderRadius: isNoteExpanded ? "0px" : "1.5rem"
+                            width: "100%",
+                            maxWidth: "24rem",
+                            height: "auto",
+                            borderRadius: "1.5rem"
                         }} 
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ type: "spring", duration: 0.5, bounce: 0.15 }}
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
-                            "bg-zinc-900/90 border border-zinc-800/50 shadow-2xl overflow-hidden relative flex flex-col",
-                            isNoteExpanded ? "h-full border-0" : "max-w-sm rounded-3xl max-h-[85vh]"
+                            "bg-zinc-900/90 border border-zinc-800/50 shadow-2xl overflow-hidden relative flex flex-col max-w-sm rounded-3xl max-h-[70vh]"
                         )}
                     >
                         {/* Subtle gradient glow at top */}
@@ -704,21 +703,12 @@ export default function CalendarPage() {
                                     : (selectedDate ? format(selectedDate, 'd MMMM', { locale: ru }) : 'Заметка')
                                 }
                             </span>
-                            <button 
-                                onClick={() => setIsNoteExpanded(!isNoteExpanded)}
-                                className="p-1.5 rounded-full bg-zinc-800/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                            >
-                                {isNoteExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                            </button>
                         </div>
 
                         {/* Content Area */}
                         <div className="px-5 py-2 relative z-10 flex-1 flex flex-col">
                             <textarea 
-                                className={cn(
-                                    "w-full bg-transparent text-white text-lg leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70",
-                                    isNoteExpanded ? "flex-1" : "h-[140px]"
-                                )}
+                                className="w-full bg-transparent text-white text-lg leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70 h-[140px]"
                                 placeholder="Опишите этот день..."
                                 value={noteContent}
                                 onChange={(e) => setNoteContent(e.target.value)}
@@ -727,17 +717,7 @@ export default function CalendarPage() {
                         </div>
 
                         {/* Footer Actions */}
-                        <div className="flex justify-between items-center px-5 pb-5 relative z-10 shrink-0">
-                             {/* Cancel/Close Button (only visible in expanded mode or as an alternative) */}
-                             {isNoteExpanded ? (
-                                <button 
-                                    onClick={() => { setIsNoteOpen(false); setEditingMonthNote(false); setMonthNoteTarget(null); setIsNoteExpanded(false); }}
-                                    className="text-zinc-500 hover:text-white transition-colors text-sm font-medium px-2"
-                                >
-                                    Отмена
-                                </button>
-                             ) : <div />}
-
+                        <div className="flex justify-end items-center px-5 pb-5 relative z-10 shrink-0">
                             <button 
                                 onClick={() => {
                                     if (editingMonthNote) {
@@ -752,7 +732,6 @@ export default function CalendarPage() {
                                             setIsNoteOpen(false);
                                         }
                                     }
-                                    setIsNoteExpanded(false);
                                 }}
                                 className="flex items-center gap-2 px-6 py-2.5 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-medium rounded-full shadow-lg shadow-red-500/20 transition-all duration-200"
                             >
