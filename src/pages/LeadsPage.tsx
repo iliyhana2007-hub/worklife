@@ -543,7 +543,8 @@ export default function LeadsPage() {
                 <motion.div 
                     initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                    className="fixed bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl border-t border-white/10 z-50 p-6 pb-safe"
+                    className="fixed bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl border-t border-white/10 z-50 p-6 pb-safe overflow-y-auto"
+                    style={{ maxHeight: '90vh' }}
                 >
                     <div className="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto mb-6" />
                     <h3 className="text-xl font-bold text-white mb-6">
@@ -606,7 +607,7 @@ export default function LeadsPage() {
 
                         <button 
                             onClick={handleSaveCounter}
-                            className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg active:scale-95 transition-transform mt-2"
+                            className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg active:scale-95 transition-transform mt-4 mb-6"
                         >
                             Сохранить
                         </button>
@@ -697,7 +698,7 @@ export default function LeadsPage() {
 
                         <button 
                             onClick={handleSaveLead}
-                            className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg active:scale-95 transition-transform mt-4"
+                            className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg active:scale-95 transition-transform mt-4 mb-6"
                         >
                             Сохранить
                         </button>

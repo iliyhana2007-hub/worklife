@@ -25,7 +25,7 @@ const StatsWidget = ({
   return (
     <button 
       onClick={onToggle}
-      className="flex items-center justify-center gap-4 py-2 w-full active:opacity-70 transition-opacity"
+      className="flex items-center justify-center gap-4 py-2 w-full active:opacity-70 transition-opacity select-none"
     >
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-white" />
@@ -82,7 +82,7 @@ const MiniMonth = ({
                 <div 
                     key={dateKey} 
                     className={cn(
-                        "aspect-square rounded-full flex items-center justify-center text-[5px] font-medium",
+                        "aspect-square rounded-full flex items-center justify-center text-[5px] font-medium select-none",
                         status === 'good' && "bg-white text-black",
                         status === 'bad' && "bg-red-500 text-white",
                         status === 'neutral' && isCurrent && "bg-red-500 text-white"
@@ -128,7 +128,7 @@ const MonthView = ({
   return (
     <div className="flex flex-col mb-8" data-month={format(monthDate, 'yyyy-MM')}>
       {/* Month Name Header (Sticky) - iOS Style Large Title */}
-      <div className="px-4 py-2 sticky top-0 bg-black/95 backdrop-blur-sm z-30">
+      <div className="px-4 py-2 sticky top-0 bg-black/95 backdrop-blur-sm z-30 select-none">
         <span className="text-white font-bold text-3xl capitalize">
           {format(monthDate, 'LLLL', { locale: ru })}
         </span>
@@ -187,7 +187,7 @@ const MonthView = ({
                               whileTap={{ scale: 0.9 }}
                               onClick={(e) => onCycleStatus(date, e)}
                               className={cn(
-                                "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 relative z-10",
+                                "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 relative z-10 select-none",
                                 status === 'neutral' && isTodayDate && "border border-white text-white font-semibold", 
                                 status === 'neutral' && !isTodayDate && "text-white",
                                 status === 'good' && "bg-white text-black font-semibold", 
