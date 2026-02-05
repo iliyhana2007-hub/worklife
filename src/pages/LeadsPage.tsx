@@ -4,7 +4,6 @@ import { Plus, Minus, Briefcase, User, Clock, Trash2, Search, Settings, Check, E
 import { cn } from '@/lib/utils';
 import { format, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Underline } from '@/components/HandDrawn';
 
 const STATUS_CONFIG = {
   new: { label: 'Написал', color: 'bg-zinc-500', text: 'text-zinc-500', border: 'border-zinc-500/20' },
@@ -162,7 +161,6 @@ export default function LeadsPage() {
            <div className="flex justify-between items-center">
              <div className="relative">
                <h2 className="text-2xl font-bold text-white relative z-10">Счётчики</h2>
-               <Underline className="absolute -bottom-1 left-0 w-full h-3 text-blue-500/50" />
              </div>
              <motion.button 
                 whileTap={{ scale: 0.95 }}
@@ -351,7 +349,6 @@ export default function LeadsPage() {
                         </span>
                     )}
                 </h2>
-                <Underline className="absolute -bottom-1 left-0 w-full h-3 text-purple-500/50" />
             </div>
             <motion.button 
                 whileTap={{ scale: 0.95 }}
