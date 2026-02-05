@@ -552,21 +552,8 @@ export default function CalendarPage() {
     <div className="flex flex-col h-full bg-black text-white">
       {/* iOS Header */}
       <div className="flex items-center px-4 pb-2 pt-safe min-h-[50px]">
-        {/* Left Side */}
+        {/* Left Side - Empty for "Close" button space */}
         <div className="flex-1 flex justify-start min-w-0">
-            {view === 'year' && (
-                <button 
-                    onClick={() => setView('month')}
-                    className="flex flex-col items-start"
-                >
-                    <span className="text-red-500 text-xs font-medium mb-0.5">
-                        {format(currentDate, 'yyyy')}
-                    </span>
-                    <span className="text-3xl font-bold tracking-tight capitalize">
-                        {format(currentDate, 'yyyy')}
-                    </span>
-                </button>
-            )}
         </div>
 
         {/* Center Side */}
@@ -579,6 +566,19 @@ export default function CalendarPage() {
                     <ChevronLeft size={20} strokeWidth={2.5} />
                     <span className="text-lg font-medium tracking-tight">{format(currentDate, 'yyyy')}</span>
                 </button>
+            )}
+            {view === 'year' && (
+                 <button 
+                     onClick={() => setView('month')}
+                     className="flex flex-col items-center"
+                 >
+                     <span className="text-red-500 text-xs font-medium mb-0.5">
+                         {format(currentDate, 'yyyy')}
+                     </span>
+                     <span className="text-3xl font-bold tracking-tight capitalize">
+                         {format(currentDate, 'yyyy')}
+                     </span>
+                 </button>
             )}
         </div>
 

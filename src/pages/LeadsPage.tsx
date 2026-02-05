@@ -156,7 +156,7 @@ export default function LeadsPage() {
 
   // --- Counters Section ---
   const renderCounters = () => (
-    <div className="p-4 space-y-6 pb-32">
+    <div className="p-4 space-y-6 pb-32 pt-safe mt-10">
        {/* Header & Total */}
        <div className="space-y-4">
            <div className="flex justify-between items-center">
@@ -333,8 +333,8 @@ export default function LeadsPage() {
   };
 
   const renderCRM = () => (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-4 space-y-4">
+    <div className="flex flex-col h-full pt-safe">
+      <div className="px-4 py-4 space-y-4 mt-10">
         <div className="flex justify-between items-center">
             <div className="relative">
                 <h2 className="text-2xl font-bold text-white relative z-10 flex items-center gap-2">
