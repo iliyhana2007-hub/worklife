@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfYear, eachMonthOfInterval, isBefore, isToday, getDay, isSameMonth, isAfter, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, FileText, Check, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Check } from 'lucide-react';
 import { useStore, type DayStatus } from '@/store/useStore';
 import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Stats Component ---
 const StatsWidget = ({ 
@@ -389,14 +389,6 @@ export default function CalendarPage() {
   const [editingMonthNote, setEditingMonthNote] = useState(false);
   const [monthNoteTarget, setMonthNoteTarget] = useState<Date | null>(null); // Which month we are editing note for
   const [expandedYearNotes, setExpandedYearNotes] = useState<Record<string, boolean>>({});
-  const [isNoteExpanded, setIsNoteExpanded] = useState(false);
-  const controls = useAnimation();
-  
-  useEffect(() => {
-    if (isNoteOpen || editingMonthNote) {
-        controls.set({ y: "calc(100% - 350px)" });
-    }
-  }, [isNoteOpen, editingMonthNote, controls]);
   
   // Store
   const { days, setDayStatus, setDayNote, monthNotes, setMonthNote } = useStore();
