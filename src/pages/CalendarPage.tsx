@@ -549,9 +549,9 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-black text-white pt-safe-top">
+    <div className="flex flex-col h-full bg-black text-white">
       {/* iOS Header */}
-      <div className="flex justify-between items-center px-4 pb-2 min-h-[50px]">
+      <div className="flex justify-between items-center px-4 pb-2 pt-2 min-h-[50px]">
         {view === 'month' ? (
              <button 
                 onClick={() => setView('year')}

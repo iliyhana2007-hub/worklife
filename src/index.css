@@ -77,6 +77,10 @@
     --status-good: 142 71% 45%; /* Green 500 */
     --status-bad: 0 84% 60%;   /* Red 500 */
     --status-neutral: 240 5% 64.9%;
+
+    /* Safe Area Insets (iOS default fallback) */
+    --safe-top: env(safe-area-inset-top, 20px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
   }
 
   * {
@@ -85,6 +89,8 @@
   
   body {
     @apply bg-background text-foreground antialiased;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
   }
 }
 
