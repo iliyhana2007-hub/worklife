@@ -631,12 +631,14 @@ export default function CalendarPage() {
       setFocusId(newId);
       setActiveBlockId(newId);
     } else if (e.key === 'Backspace') {
+      const element = e.currentTarget as HTMLTextAreaElement;
+      if (blocks[index].type === 'todo' && element.selectionStart === 0 && element.selectionEnd === 0) {
+          e.preventDefault();
+          setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'text' } : b));
+          return;
+      }
+
       if (blocks[index].content === '') {
-        if (blocks[index].type === 'todo') {
-             e.preventDefault();
-             setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'text' } : b));
-             return;
-        }
         if (blocks.length > 1) {
             e.preventDefault();
             setBlocks(prev => prev.filter(b => b.id !== id));
