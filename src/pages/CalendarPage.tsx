@@ -254,11 +254,11 @@ const MonthView = ({
                             className="relative w-full h-full flex flex-col items-center justify-center"
                           >
                             <motion.button 
-                              whileTap={{ scale: 0.9 }}
-                              onPointerDown={() => handlePointerDown(date)}
-                              onPointerUp={(e) => handlePointerUp(date, e as any)}
-                              onPointerLeave={handlePointerCancel}
-                              onPointerCancel={handlePointerCancel}
+                              whileTap={!isFuture ? { scale: 0.9 } : undefined}
+                              onPointerDown={!isFuture ? () => handlePointerDown(date) : undefined}
+                              onPointerUp={!isFuture ? (e) => handlePointerUp(date, e as any) : undefined}
+                              onPointerLeave={!isFuture ? handlePointerCancel : undefined}
+                              onPointerCancel={!isFuture ? handlePointerCancel : undefined}
                               className="w-full h-full flex items-center justify-center relative z-10 touch-manipulation"
                             >
                                 <div className={cn(
