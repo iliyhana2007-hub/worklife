@@ -5,9 +5,23 @@ import { v4 as uuidv4 } from 'uuid';
 
 export type DayStatus = 'neutral' | 'good' | 'bad';
 
+export interface TodoItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export interface DayData {
   status: DayStatus;
   note?: string;
+  todos?: TodoItem[];
+  lastModified?: number;
+}
+
+export interface MonthData {
+  note: string;
+  todos?: TodoItem[];
+  lastModified?: number;
 }
 
 export interface Lead {
@@ -40,10 +54,10 @@ export interface Counter {
 export interface AppState {
   // Calendar
   days: Record<string, DayData>; // key: YYYY-MM-DD
-  monthNotes: Record<string, string>; // key: YYYY-MM
+  monthNotes: Record<string, MonthData | string>; // key: YYYY-MM (string for backward compat)
   setDayStatus: (date: string, status: DayStatus) => void;
-  setDayNote: (date: string, note: string) => void;
-  setMonthNote: (month: string, note: string) => void;
+  setDayNote: (date: string, note: string, todos?: TodoItem[]) => void;
+  setMonthNote: (month: string, note: string, todos?: TodoItem[]) => void;
 
   // Leads / Counters
   counters: Counter[];
@@ -79,18 +93,27 @@ export const useStore = create<AppState>()(
             [date]: { ...state.days[date], status },
           },
         })),
-      setDayNote: (date, note) =>
+      setDayNote: (date, note, todos) =>
         set((state) => ({
           days: {
             ...state.days,
-            [date]: { ...state.days[date], note },
+            [date]: { 
+              ...state.days[date], 
+              note, 
+              todos,
+              lastModified: Date.now()
+            },
           },
         })),
-      setMonthNote: (month, note) =>
+      setMonthNote: (month, note, todos) =>
         set((state) => ({
           monthNotes: {
             ...state.monthNotes,
-            [month]: note,
+            [month]: {
+              note,
+              todos,
+              lastModified: Date.now()
+            },
           },
         })),
 

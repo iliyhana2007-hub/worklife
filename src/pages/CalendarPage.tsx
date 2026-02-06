@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfYear, eachMonthOfInterval, isBefore, isToday, getDay, isSameMonth, isAfter, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, FileText, Check } from 'lucide-react';
-import { useStore, type DayStatus } from '@/store/useStore';
+import { ChevronLeft, ChevronRight, FileText, Circle, CheckCircle2, Plus, X } from 'lucide-react';
+import { useStore, type DayStatus, type TodoItem } from '@/store/useStore';
 import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
 import { motion, AnimatePresence } from 'framer-motion';
+import { v4 as uuidv4 } from 'uuid';
 
 // --- Stats Component ---
 const StatsWidget = ({ 
@@ -418,6 +419,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
+  const [todos, setTodos] = useState<TodoItem[]>([]);
   const [editingMonthNote, setEditingMonthNote] = useState(false);
   const [monthNoteTarget, setMonthNoteTarget] = useState<Date | null>(null); // Which month we are editing note for
   const [expandedYearNotes, setExpandedYearNotes] = useState<Record<string, boolean>>({});
@@ -462,6 +464,7 @@ export default function CalendarPage() {
     setSelectedDate(date);
     const dateKey = format(date, 'yyyy-MM-dd');
     setNoteContent(days[dateKey]?.note || '');
+    setTodos(days[dateKey]?.todos || []);
     setIsNoteOpen(true);
   };
 
@@ -479,8 +482,30 @@ export default function CalendarPage() {
 
   const openMonthNote = (monthDate: Date) => {
       setMonthNoteTarget(monthDate);
-      setNoteContent(monthNotes[format(monthDate, 'yyyy-MM')] || '');
+      const data = monthNotes[format(monthDate, 'yyyy-MM')];
+      if (typeof data === 'string') {
+          setNoteContent(data || '');
+          setTodos([]);
+      } else {
+          setNoteContent(data?.note || '');
+          setTodos(data?.todos || []);
+      }
       setEditingMonthNote(true);
+  };
+
+  const saveAndClose = () => {
+      if (editingMonthNote) {
+          const target = monthNoteTarget || currentDate;
+          setMonthNote(format(target, 'yyyy-MM'), noteContent, todos);
+          setEditingMonthNote(false);
+          setMonthNoteTarget(null);
+      } else {
+          if (selectedDate) {
+              const dateKey = format(selectedDate, 'yyyy-MM-dd');
+              setDayNote(dateKey, noteContent, todos);
+              setIsNoteOpen(false);
+          }
+      }
   };
 
   // Render Month View
@@ -522,6 +547,9 @@ export default function CalendarPage() {
                     const isPastOrCurrent = isBefore(mStart, new Date()) || isSameMonth(mStart, new Date());
                     const monthKey = format(month, 'yyyy-MM');
                     const isExpanded = expandedYearNotes[monthKey];
+                    const noteData = monthNotes[monthKey];
+                    const noteText = typeof noteData === 'string' ? noteData : noteData?.note;
+                    const hasNote = !!noteText || (typeof noteData !== 'string' && (noteData?.todos?.length || 0) > 0);
 
                     return (
                         <div key={idx} className="flex flex-col gap-2">
@@ -551,7 +579,7 @@ export default function CalendarPage() {
                                                  "text-[9px] leading-tight transition-colors duration-200",
                                                  isExpanded ? "text-zinc-200 whitespace-pre-wrap" : "text-zinc-500 line-clamp-2"
                                              )}>
-                                                 {monthNotes[monthKey] || "..."}
+                                                 {noteText || (hasNote ? "Задачи..." : "...")}
                                              </p>
                                          </div>
                                      ) : (
@@ -683,89 +711,106 @@ export default function CalendarPage() {
         </AnimatePresence>
       </div>
 
-      {/* Note Modal (Centered Glassmorphism) */}
+      {/* Note Modal (Full Screen iOS Style) */}
       <AnimatePresence>
         {(isNoteOpen || editingMonthNote) && (
-            <>
-                {/* Backdrop with heavy blur for focus */}
-                <motion.div 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4"
-                    onClick={() => { setIsNoteOpen(false); setEditingMonthNote(false); setMonthNoteTarget(null); }}
-                >
-                    {/* Centered Modal Card */}
-                    <motion.div 
-                        layout
-                        initial={{ opacity: 0, scale: 0.95, y: 10 }} 
-                        animate={{ 
-                            opacity: 1, 
-                            scale: 1, 
-                            y: 0,
-                            width: "100%",
-                            maxWidth: "24rem",
-                            height: "auto",
-                            borderRadius: "1.5rem"
-                        }} 
-                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        transition={{ type: "spring", duration: 0.5, bounce: 0.15 }}
-                        onClick={(e) => e.stopPropagation()}
-                        className={cn(
-                            "bg-zinc-900/90 border border-zinc-800/50 shadow-2xl overflow-hidden relative flex flex-col max-w-sm rounded-3xl max-h-[70vh]"
-                        )}
+            <motion.div 
+                initial={{ y: "100%" }} 
+                animate={{ y: 0 }} 
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                className="fixed inset-0 bg-black z-50 flex flex-col"
+            >
+                {/* Header */}
+                <div className="flex justify-between items-center px-4 pt-safe pb-2 min-h-[50px] relative">
+                    <button 
+                        onClick={saveAndClose}
+                        className="flex items-center gap-1 text-[#FFD60A] active:opacity-60 transition-opacity z-10"
                     >
-                        {/* Subtle gradient glow at top */}
-                        <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-red-500/5 to-transparent pointer-events-none" />
+                        <ChevronLeft size={24} strokeWidth={2.5} />
+                        <span className="text-[17px] font-medium leading-none mb-0.5">Назад</span>
+                    </button>
 
-                        {/* Header */}
-                        <div className="flex justify-between items-center px-5 pt-5 pb-2 relative z-10 shrink-0">
-                            <span className="text-zinc-400 font-medium text-sm capitalize">
-                                {editingMonthNote 
-                                    ? (monthNoteTarget ? format(monthNoteTarget, 'LLLL yyyy', { locale: ru }) : 'Итоги месяца') 
-                                    : (selectedDate ? format(selectedDate, 'd MMMM', { locale: ru }) : 'Заметка')
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pt-safe pointer-events-none">
+                        <span className="text-zinc-500 text-[12px] font-medium">
+                            {editingMonthNote 
+                                ? (monthNoteTarget ? format(monthNoteTarget, 'd MMMM yyyy', { locale: ru }) : 'Итоги месяца') 
+                                : (selectedDate ? format(selectedDate, 'd MMMM yyyy', { locale: ru }) : 'Заметка')
+                            }
+                        </span>
+                        <span className="text-zinc-600 text-[10px]">
+                            {(() => {
+                                let ts: number | undefined;
+                                if (editingMonthNote) {
+                                    const data = monthNotes[format(monthNoteTarget || currentDate, 'yyyy-MM')];
+                                    if (typeof data !== 'string') ts = data?.lastModified;
+                                } else if (selectedDate) {
+                                    ts = days[format(selectedDate, 'yyyy-MM-dd')]?.lastModified;
                                 }
-                            </span>
-                        </div>
+                                return ts ? format(ts, 'HH:mm', { locale: ru }) : format(new Date(), 'HH:mm');
+                            })()}
+                        </span>
+                    </div>
 
-                        {/* Content Area */}
-                        <div className="px-5 py-2 relative z-10 flex-1 flex flex-col">
-                            <textarea 
-                                className="w-full bg-transparent text-white text-lg leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70 h-[140px]"
-                                placeholder="Опишите этот день..."
-                                value={noteContent}
-                                onChange={(e) => setNoteContent(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
+                    <button 
+                        onClick={saveAndClose}
+                        className="text-[#FFD60A] text-[17px] font-semibold active:opacity-60 transition-opacity z-10"
+                    >
+                        Готово
+                    </button>
+                </div>
 
-                        {/* Footer Actions */}
-                        <div className="flex justify-end items-center px-5 pb-5 relative z-10 shrink-0">
-                            <button 
-                                onClick={() => {
-                                    if (editingMonthNote) {
-                                        const target = monthNoteTarget || currentDate;
-                                        setMonthNote(format(target, 'yyyy-MM'), noteContent);
-                                        setEditingMonthNote(false);
-                                        setMonthNoteTarget(null);
-                                    } else {
-                                        if (selectedDate) {
-                                            const dateKey = format(selectedDate, 'yyyy-MM-dd');
-                                            setDayNote(dateKey, noteContent);
-                                            setIsNoteOpen(false);
-                                        }
-                                    }
-                                }}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-medium rounded-full shadow-lg shadow-red-500/20 transition-all duration-200"
-                            >
-                                <span>Сохранить</span>
-                                <Check size={16} strokeWidth={2.5} />
-                            </button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            </>
+                {/* Content Area */}
+                <div className="flex-1 px-5 pt-2 pb-safe overflow-y-auto">
+                    <textarea 
+                        className="w-full bg-transparent text-white text-[19px] leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70 font-normal min-h-[150px]"
+                        placeholder="Начните писать..."
+                        value={noteContent}
+                        onChange={(e) => setNoteContent(e.target.value)}
+                        autoFocus
+                        spellCheck={false}
+                    />
+                    
+                    {/* Tasks List */}
+                    <div className="flex flex-col gap-3 mt-4 pb-20">
+                        {todos.map(todo => (
+                            <div key={todo.id} className="flex items-start gap-3 group animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <button 
+                                    onClick={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !t.completed } : t))}
+                                    className="mt-1 text-zinc-400 hover:text-[#FFD60A] transition-colors shrink-0"
+                                >
+                                    {todo.completed ? <CheckCircle2 size={22} className="text-[#FFD60A]" /> : <Circle size={22} />}
+                                </button>
+                                <input 
+                                    value={todo.text} 
+                                    onChange={(e) => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, text: e.target.value } : t))}
+                                    className={cn(
+                                        "flex-1 bg-transparent border-none p-0 text-[19px] focus:ring-0 leading-relaxed font-normal focus:outline-none placeholder:text-zinc-600/50", 
+                                        todo.completed && "text-zinc-500 line-through decoration-zinc-600"
+                                    )}
+                                    placeholder="Новая задача"
+                                />
+                                <button 
+                                    onClick={() => setTodos(prev => prev.filter(t => t.id !== todo.id))} 
+                                    className="mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-zinc-600 hover:text-red-500 p-1"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        ))}
+                        
+                        <button 
+                            onClick={() => setTodos(prev => [...prev, { id: uuidv4(), text: '', completed: false }])}
+                            className="flex items-center gap-3 text-zinc-500 hover:text-[#FFD60A] transition-colors mt-2 group w-full text-left"
+                        >
+                            <div className="w-[22px] flex justify-center shrink-0">
+                                <Plus size={22} className="group-hover:scale-110 transition-transform" />
+                            </div>
+                            <span className="text-[19px] font-normal">Добавить задачу</span>
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
         )}
       </AnimatePresence>
     </div>
