@@ -2,11 +2,47 @@ import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfYear, eachMonthOfInterval, isBefore, isToday, getDay, isSameMonth, isAfter, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, FileText, Circle, CheckCircle2, Plus, X } from 'lucide-react';
-import { useStore, type DayStatus, type TodoItem } from '@/store/useStore';
+import { useStore, type DayStatus, type TodoItem, type ContentBlock } from '@/store/useStore';
 import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
+
+// --- Auto Resize Textarea ---
+const AutoResizeTextarea = ({ 
+  value, 
+  onChange, 
+  onKeyDown, 
+  onFocus,
+  autoFocus, 
+  className, 
+  placeholder,
+  inputRef 
+}: any) => {
+  const innerRef = useRef<HTMLTextAreaElement>(null);
+  
+  useLayoutEffect(() => {
+    const el = inputRef?.current || innerRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+  }, [value]);
+
+  return (
+    <textarea 
+      ref={inputRef || innerRef}
+      value={value}
+      onChange={onChange}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      autoFocus={autoFocus}
+      className={className}
+      placeholder={placeholder}
+      rows={1}
+    />
+  );
+};
 
 // --- Stats Component ---
 const StatsWidget = ({ 
@@ -418,14 +454,20 @@ export default function CalendarPage() {
   
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
-  const [noteContent, setNoteContent] = useState('');
-  const [todos, setTodos] = useState<TodoItem[]>([]);
+  
+  // New Block State
+  const [blocks, setBlocks] = useState<ContentBlock[]>([]);
+  
   const [editingMonthNote, setEditingMonthNote] = useState(false);
-  const [monthNoteTarget, setMonthNoteTarget] = useState<Date | null>(null); // Which month we are editing note for
+  const [monthNoteTarget, setMonthNoteTarget] = useState<Date | null>(null);
   const [expandedYearNotes, setExpandedYearNotes] = useState<Record<string, boolean>>({});
   
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const blockRefs = useRef<Record<string, HTMLTextAreaElement | HTMLInputElement | null>>({});
+
   // Store
-  const { days, setDayStatus, setDayNote, monthNotes, setMonthNote } = useStore();
+  const { days, setDayStatus, setDayNote, setDayBlocks, monthNotes, setMonthNote, setMonthBlocks } = useStore();
 
   // Navigation
   const paginate = (newDirection: number) => {
@@ -459,19 +501,65 @@ export default function CalendarPage() {
     }
   }, [currentDate, days, view]);
 
+  // Load Data Helper
+  const loadData = (date: Date, isMonth: boolean) => {
+    let initialBlocks: ContentBlock[] = [];
+    let note = '';
+    let todos: TodoItem[] = [];
+
+    if (isMonth) {
+      const key = format(date, 'yyyy-MM');
+      const data = monthNotes[key];
+      if (typeof data === 'string') {
+        note = data;
+      } else if (data) {
+        if (data.blocks && data.blocks.length > 0) {
+          setBlocks(data.blocks);
+          return;
+        }
+        note = data.note || '';
+        todos = data.todos || [];
+      }
+    } else {
+      const key = format(date, 'yyyy-MM-dd');
+      const data = days[key];
+      if (data) {
+        if (data.blocks && data.blocks.length > 0) {
+          setBlocks(data.blocks);
+          return;
+        }
+        note = data.note || '';
+        todos = data.todos || [];
+      }
+    }
+
+    // Migration logic
+    if (note) {
+      initialBlocks.push({ id: uuidv4(), type: 'text', content: note });
+    }
+    if (todos.length > 0) {
+      todos.forEach(t => {
+        initialBlocks.push({ id: t.id, type: 'todo', content: t.text, completed: t.completed });
+      });
+    }
+    
+    // Ensure at least one empty block if nothing exists
+    if (initialBlocks.length === 0) {
+      initialBlocks.push({ id: uuidv4(), type: 'text', content: '' });
+    }
+    
+    setBlocks(initialBlocks);
+  };
+
   // Handlers
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
-    const dateKey = format(date, 'yyyy-MM-dd');
-    setNoteContent(days[dateKey]?.note || '');
-    setTodos(days[dateKey]?.todos || []);
+    loadData(date, false);
     setIsNoteOpen(true);
   };
 
   const cycleStatus = (date: Date, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    // Prevent changing status for future days
     if (isAfter(startOfDay(date), startOfDay(new Date()))) return;
 
     const dateKey = format(date, 'yyyy-MM-dd');
@@ -482,35 +570,113 @@ export default function CalendarPage() {
 
   const openMonthNote = (monthDate: Date) => {
       setMonthNoteTarget(monthDate);
-      const data = monthNotes[format(monthDate, 'yyyy-MM')];
-      if (typeof data === 'string') {
-          setNoteContent(data || '');
-          setTodos([]);
-      } else {
-          setNoteContent(data?.note || '');
-          setTodos(data?.todos || []);
-      }
+      loadData(monthDate, true);
       setEditingMonthNote(true);
   };
 
   const saveAndClose = () => {
+      // Generate preview text
+      const previewText = blocks
+        .map(b => b.type === 'todo' ? (b.completed ? '[x] ' : '[ ] ') + b.content : b.content)
+        .join('\n');
+
       if (editingMonthNote) {
           const target = monthNoteTarget || currentDate;
-          setMonthNote(format(target, 'yyyy-MM'), noteContent, todos);
+          const key = format(target, 'yyyy-MM');
+          setMonthBlocks(key, blocks);
+          setMonthNote(key, previewText, []); // Update legacy note
           setEditingMonthNote(false);
           setMonthNoteTarget(null);
       } else {
           if (selectedDate) {
               const dateKey = format(selectedDate, 'yyyy-MM-dd');
-              setDayNote(dateKey, noteContent, todos);
+              setDayBlocks(dateKey, blocks);
+              setDayNote(dateKey, previewText, []); // Update legacy note
               setIsNoteOpen(false);
           }
       }
   };
 
+  const handleBlockChange = (id: string, content: string) => {
+    // Check for todo conversion pattern
+    if (content.startsWith('[] ') || content.startsWith('[ ] ')) {
+        const cleanContent = content.replace(/^\[\s?\]\s/, '');
+        setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'todo', content: cleanContent, completed: false } : b));
+        return;
+    }
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content } : b));
+  };
+
+  const handleToggleTodo = (id: string) => {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, completed: !b.completed } : b));
+  };
+
+  const handleBlockKeyDown = (e: React.KeyboardEvent, id: string, index: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const currentBlock = blocks[index];
+      const newId = uuidv4();
+      const newBlock: ContentBlock = { 
+        id: newId, 
+        type: currentBlock.type, 
+        content: '', 
+        completed: false 
+      };
+
+      setBlocks(prev => {
+        const newBlocks = [...prev];
+        newBlocks.splice(index + 1, 0, newBlock);
+        return newBlocks;
+      });
+      setFocusId(newId);
+      setActiveBlockId(newId);
+    } else if (e.key === 'Backspace') {
+      if (blocks[index].content === '') {
+        if (blocks[index].type === 'todo') {
+             e.preventDefault();
+             setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'text' } : b));
+             return;
+        }
+        if (blocks.length > 1) {
+            e.preventDefault();
+            setBlocks(prev => prev.filter(b => b.id !== id));
+            if (index > 0) {
+                setFocusId(blocks[index - 1].id);
+                setActiveBlockId(blocks[index - 1].id);
+            }
+        }
+      }
+    }
+  };
+
+  const handleAddBlock = () => {
+      const newId = uuidv4();
+      const newBlock: ContentBlock = { id: newId, type: 'todo', content: '', completed: false };
+      
+      setBlocks(prev => {
+          if (activeBlockId) {
+              const index = prev.findIndex(b => b.id === activeBlockId);
+              if (index !== -1) {
+                  const newBlocks = [...prev];
+                  newBlocks.splice(index + 1, 0, newBlock);
+                  return newBlocks;
+              }
+          }
+          return [...prev, newBlock];
+      });
+      setFocusId(newId);
+      setActiveBlockId(newId);
+  };
+
+  useEffect(() => {
+    if (focusId && blockRefs.current[focusId]) {
+      blockRefs.current[focusId]?.focus();
+      setFocusId(null);
+    }
+  }, [focusId, blocks]);
+
   // Render Month View
   const renderMonth = () => {
-    // Initial load state logic is handled by InfiniteMonthScroll component below
     return (
       <InfiniteMonthScroll
         initialDate={currentDate}
@@ -534,7 +700,6 @@ export default function CalendarPage() {
         <div className="flex flex-col h-full overflow-y-auto pb-20 no-scrollbar">
             <div className="grid grid-cols-3 gap-x-4 gap-y-8 p-4">
                 {months.map((month, idx) => {
-                    // Extract simplified status for this month for rendering dots
                     const mStart = startOfMonth(month);
                     const mEnd = endOfMonth(month);
                     const mDays = eachDayOfInterval({ start: mStart, end: mEnd });
@@ -561,7 +726,6 @@ export default function CalendarPage() {
                                     setView('month');
                                 }}
                              />
-                             {/* Month Summary Button for Year View */}
                              {isPastOrCurrent && (
                                  <div className="mt-1">
                                      {showMiniNotes ? (
@@ -604,11 +768,9 @@ export default function CalendarPage() {
     <div className="flex flex-col h-full bg-black text-white">
       {/* iOS Header */}
       <div className="flex items-center px-4 pb-2 pt-safe min-h-[50px]">
-        {/* Left Side - Empty for "Close" button space */}
         <div className="flex-1 flex justify-start min-w-0">
         </div>
 
-        {/* Center Side */}
         <div className="flex-none flex justify-center">
             {view === 'month' && (
                  <button 
@@ -634,9 +796,7 @@ export default function CalendarPage() {
             )}
         </div>
 
-        {/* Right Side */}
         <div className="flex-1 flex justify-end items-center gap-4 min-w-0">
-            {/* Toggle Mini Notes (Only for Year View) */}
             {view === 'year' && (
                 <button 
                     onClick={() => setShowMiniNotes(!showMiniNotes)}
@@ -648,28 +808,9 @@ export default function CalendarPage() {
                     <FileText size={18} strokeWidth={2.5} />
                 </button>
             )}
-
-            {/* Pagination controls removed for Month View as we have infinite scroll */}
-            {view === 'year' && (
-                <>
-                    <button 
-                        onClick={() => paginate(-1)} 
-                        className="text-red-500 hover:opacity-70 transition-opacity"
-                    >
-                        <ChevronLeft size={24} strokeWidth={2.5} />
-                    </button>
-                    <button 
-                        onClick={() => paginate(1)} 
-                        className="text-red-500 hover:opacity-70 transition-opacity"
-                    >
-                        <ChevronRight size={24} strokeWidth={2.5} />
-                    </button>
-                </>
-            )}
         </div>
       </div>
 
-      {/* Global Stats Widget (Visible in both views, context aware) */}
       <div className="border-b border-zinc-900 bg-black z-10">
           <StatsWidget 
             stats={currentStats} 
@@ -680,7 +821,6 @@ export default function CalendarPage() {
             }))} 
           />
           
-          {/* Weekday Headers - Visible ONLY in Month View */}
           {view === 'month' && (
              <div className="grid grid-cols-7 py-2 border-b border-zinc-800 bg-black">
                 {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(d => (
@@ -690,7 +830,6 @@ export default function CalendarPage() {
           )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-hidden relative">
         <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
@@ -711,7 +850,6 @@ export default function CalendarPage() {
         </AnimatePresence>
       </div>
 
-      {/* Note Modal (Full Screen iOS Style) */}
       <AnimatePresence>
         {(isNoteOpen || editingMonthNote) && (
             <motion.div 
@@ -721,8 +859,7 @@ export default function CalendarPage() {
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
                 className="fixed inset-0 bg-black z-50 flex flex-col"
             >
-                {/* Header */}
-                <div className="flex justify-between items-center px-4 pt-safe pb-2 min-h-[50px] relative">
+                <div className="flex justify-between items-center px-4 pt-safe pb-2 min-h-[50px] relative pr-14">
                     <button 
                         onClick={saveAndClose}
                         className="flex items-center gap-1 text-[#FFD60A] active:opacity-60 transition-opacity z-10"
@@ -753,61 +890,69 @@ export default function CalendarPage() {
                     </div>
 
                     <button 
-                        onClick={saveAndClose}
-                        className="text-[#FFD60A] text-[17px] font-semibold active:opacity-60 transition-opacity z-10"
+                        onClick={handleAddBlock}
+                        className="text-[#FFD60A] active:opacity-60 transition-opacity z-10"
                     >
-                        Готово
+                        <Plus size={24} strokeWidth={2.5} />
                     </button>
                 </div>
 
-                {/* Content Area */}
                 <div className="flex-1 px-5 pt-2 pb-safe overflow-y-auto">
-                    <textarea 
-                        className="w-full bg-transparent text-white text-[19px] leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70 font-normal min-h-[150px]"
-                        placeholder="Начните писать..."
-                        value={noteContent}
-                        onChange={(e) => setNoteContent(e.target.value)}
-                        autoFocus
-                        spellCheck={false}
-                    />
-                    
-                    {/* Tasks List */}
-                    <div className="flex flex-col gap-3 mt-4 pb-20">
-                        {todos.map(todo => (
-                            <div key={todo.id} className="flex items-start gap-3 group animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <button 
-                                    onClick={() => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !t.completed } : t))}
-                                    className="mt-1 text-zinc-400 hover:text-[#FFD60A] transition-colors shrink-0"
-                                >
-                                    {todo.completed ? <CheckCircle2 size={22} className="text-[#FFD60A]" /> : <Circle size={22} />}
-                                </button>
-                                <input 
-                                    value={todo.text} 
-                                    onChange={(e) => setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, text: e.target.value } : t))}
-                                    className={cn(
-                                        "flex-1 bg-transparent border-none p-0 text-[19px] focus:ring-0 leading-relaxed font-normal focus:outline-none placeholder:text-zinc-600/50", 
-                                        todo.completed && "text-zinc-500 line-through decoration-zinc-600"
-                                    )}
-                                    placeholder="Новая задача"
-                                />
-                                <button 
-                                    onClick={() => setTodos(prev => prev.filter(t => t.id !== todo.id))} 
-                                    className="mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-zinc-600 hover:text-red-500 p-1"
-                                >
-                                    <X size={18} />
-                                </button>
+                    <div className="flex flex-col gap-3 pb-20">
+                        {blocks.map((block, index) => (
+                            <div key={block.id} className="group animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                {block.type === 'text' ? (
+                                    <div className="flex items-start gap-2">
+                                         <AutoResizeTextarea
+                                            inputRef={(el: HTMLTextAreaElement | null) => { blockRefs.current[block.id] = el }}
+                                            value={block.content}
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleBlockChange(block.id, e.target.value)}
+                                            onKeyDown={(e: React.KeyboardEvent) => handleBlockKeyDown(e, block.id, index)}
+                                            onFocus={() => setActiveBlockId(block.id)}
+                                            className="w-full bg-transparent text-white text-[19px] leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70 font-normal"
+                                            placeholder="Начните писать..."
+                                         />
+                                         <button 
+                                            onClick={() => {
+                                                if (blocks.length > 1) {
+                                                    setBlocks(prev => prev.filter(b => b.id !== block.id));
+                                                }
+                                            }}
+                                            className="mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-zinc-600 hover:text-red-500 p-1 shrink-0"
+                                         >
+                                            <X size={18} />
+                                         </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-start gap-3">
+                                        <button 
+                                            onClick={() => handleToggleTodo(block.id)}
+                                            className="mt-1 text-zinc-400 hover:text-[#FFD60A] transition-colors shrink-0"
+                                        >
+                                            {block.completed ? <CheckCircle2 size={22} className="text-[#FFD60A]" /> : <Circle size={22} />}
+                                        </button>
+                                        <AutoResizeTextarea
+                                            inputRef={(el: HTMLTextAreaElement | null) => { blockRefs.current[block.id] = el }}
+                                            value={block.content} 
+                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleBlockChange(block.id, e.target.value)}
+                                            onKeyDown={(e: React.KeyboardEvent) => handleBlockKeyDown(e, block.id, index)}
+                                            onFocus={() => setActiveBlockId(block.id)}
+                                            className={cn(
+                                                "flex-1 bg-transparent border-none p-0 text-[19px] focus:ring-0 leading-relaxed font-normal focus:outline-none placeholder:text-zinc-600/50", 
+                                                block.completed && "text-zinc-500 line-through decoration-zinc-600"
+                                            )}
+                                            placeholder="Новая задача"
+                                        />
+                                        <button 
+                                            onClick={() => setBlocks(prev => prev.filter(b => b.id !== block.id))} 
+                                            className="mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-zinc-600 hover:text-red-500 p-1 shrink-0"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ))}
-                        
-                        <button 
-                            onClick={() => setTodos(prev => [...prev, { id: uuidv4(), text: '', completed: false }])}
-                            className="flex items-center gap-3 text-zinc-500 hover:text-[#FFD60A] transition-colors mt-2 group w-full text-left"
-                        >
-                            <div className="w-[22px] flex justify-center shrink-0">
-                                <Plus size={22} className="group-hover:scale-110 transition-transform" />
-                            </div>
-                            <span className="text-[19px] font-normal">Добавить задачу</span>
-                        </button>
                     </div>
                 </div>
             </motion.div>

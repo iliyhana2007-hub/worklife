@@ -11,16 +11,25 @@ export interface TodoItem {
   completed: boolean;
 }
 
+export interface ContentBlock {
+  id: string;
+  type: 'text' | 'todo';
+  content: string;
+  completed?: boolean;
+}
+
 export interface DayData {
   status: DayStatus;
   note?: string;
   todos?: TodoItem[];
+  blocks?: ContentBlock[];
   lastModified?: number;
 }
 
 export interface MonthData {
   note: string;
   todos?: TodoItem[];
+  blocks?: ContentBlock[];
   lastModified?: number;
 }
 
@@ -57,7 +66,9 @@ export interface AppState {
   monthNotes: Record<string, MonthData | string>; // key: YYYY-MM (string for backward compat)
   setDayStatus: (date: string, status: DayStatus) => void;
   setDayNote: (date: string, note: string, todos?: TodoItem[]) => void;
+  setDayBlocks: (date: string, blocks: ContentBlock[]) => void;
   setMonthNote: (month: string, note: string, todos?: TodoItem[]) => void;
+  setMonthBlocks: (month: string, blocks: ContentBlock[]) => void;
 
   // Leads / Counters
   counters: Counter[];
@@ -105,6 +116,17 @@ export const useStore = create<AppState>()(
             },
           },
         })),
+      setDayBlocks: (date, blocks) =>
+        set((state) => ({
+          days: {
+            ...state.days,
+            [date]: { 
+              ...state.days[date], 
+              blocks,
+              lastModified: Date.now()
+            },
+          },
+        })),
       setMonthNote: (month, note, todos) =>
         set((state) => ({
           monthNotes: {
@@ -112,6 +134,19 @@ export const useStore = create<AppState>()(
             [month]: {
               note,
               todos,
+              lastModified: Date.now()
+            },
+          },
+        })),
+      setMonthBlocks: (month, blocks) =>
+        set((state) => ({
+          monthNotes: {
+            ...state.monthNotes,
+            [month]: {
+              ...(typeof state.monthNotes[month] === 'string' 
+                  ? { note: state.monthNotes[month] as string } 
+                  : state.monthNotes[month] as MonthData),
+              blocks,
               lastModified: Date.now()
             },
           },
