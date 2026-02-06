@@ -125,8 +125,41 @@ const MonthView = ({
       weeks.push(allCells.slice(i, i + 7));
   }
 
+  // Long press handling
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPress = useRef(false);
+
+  const handlePointerDown = (date: Date) => {
+      isLongPress.current = false;
+      longPressTimer.current = setTimeout(() => {
+          if (!isAfter(startOfDay(date), startOfDay(new Date()))) {
+              isLongPress.current = true;
+              onDayClick(date);
+              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
+          }
+      }, 300); // Reduced to 300ms for faster response
+  };
+
+  const handlePointerUp = (date: Date, e: React.PointerEvent) => {
+      if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+      }
+      
+      if (!isLongPress.current) {
+          onCycleStatus(date, e as any);
+      }
+  };
+
+  const handlePointerCancel = () => {
+      if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+      }
+  };
+
   return (
-    <div className="flex flex-col mb-8" data-month={format(monthDate, 'yyyy-MM')}>
+    <div className="flex flex-col mb-8 select-none" data-month={format(monthDate, 'yyyy-MM')}>
       {/* Month Name Header (Sticky) - iOS Style Large Title */}
       <div className="px-4 py-2 sticky top-0 bg-black/95 backdrop-blur-sm z-30 select-none">
         <span className="text-white font-bold text-3xl capitalize">
@@ -181,31 +214,30 @@ const MonthView = ({
                         return (
                           <div 
                             key={dateKey} 
-                            className="relative flex flex-col items-center justify-center"
+                            className="relative w-full h-full flex flex-col items-center justify-center"
                           >
                             <motion.button 
                               whileTap={{ scale: 0.9 }}
-                              onClick={(e) => onCycleStatus(date, e)}
-                              className={cn(
-                                "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 relative z-10 select-none",
-                                status === 'neutral' && isTodayDate && "border border-white text-white font-semibold", 
-                                status === 'neutral' && !isTodayDate && "text-white",
-                                status === 'good' && "bg-white text-black font-semibold", 
-                                status === 'bad' && "bg-red-500 text-white font-semibold", 
-                              )}
+                              onPointerDown={() => handlePointerDown(date)}
+                              onPointerUp={(e) => handlePointerUp(date, e as any)}
+                              onPointerLeave={handlePointerCancel}
+                              onPointerCancel={handlePointerCancel}
+                              className="w-full h-full flex items-center justify-center relative z-10 touch-manipulation"
                             >
-                              {format(date, 'd')}
+                                <div className={cn(
+                                    "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 pointer-events-none",
+                                    status === 'neutral' && isTodayDate && "border border-white text-white font-semibold", 
+                                    status === 'neutral' && !isTodayDate && "text-white",
+                                    status === 'good' && "bg-white text-black font-semibold", 
+                                    status === 'bad' && "bg-red-500 text-white font-semibold", 
+                                )}>
+                                    {format(date, 'd')}
+                                </div>
+                                
+                                {hasNote && (
+                                    <div className="absolute bottom-1 w-1 h-1 bg-zinc-500 rounded-full pointer-events-none" />
+                                )}
                             </motion.button>
-
-                            {hasNote && (
-                              <div className="absolute bottom-1 w-1 h-1 bg-zinc-500 rounded-full" />
-                            )}
-                            
-                            {/* Invisible hit area for note opening */}
-                            <div 
-                              className="absolute inset-0 z-0" 
-                              onClick={() => onDayClick(date)}
-                            />
                           </div>
                         );
                     })}
