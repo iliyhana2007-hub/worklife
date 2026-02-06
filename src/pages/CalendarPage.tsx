@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfYear, eachMonthOfInterval, isBefore, isToday, getDay, isSameMonth, isAfter, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, FileText, Circle, CheckCircle2, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Circle, CheckCircle2, Plus } from 'lucide-react';
 import { useStore, type DayStatus, type TodoItem, type ContentBlock } from '@/store/useStore';
 import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
@@ -914,16 +914,6 @@ export default function CalendarPage() {
                                             className="w-full bg-transparent text-white text-[19px] leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70 font-normal"
                                             placeholder="Начните писать..."
                                          />
-                                         <button 
-                                            onClick={() => {
-                                                if (blocks.length > 1) {
-                                                    setBlocks(prev => prev.filter(b => b.id !== block.id));
-                                                }
-                                            }}
-                                            className="mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-zinc-600 hover:text-red-500 p-1 shrink-0"
-                                         >
-                                            <X size={18} />
-                                         </button>
                                     </div>
                                 ) : (
                                     <div className="flex items-start gap-3">
@@ -945,12 +935,6 @@ export default function CalendarPage() {
                                             )}
                                             placeholder="Новая задача"
                                         />
-                                        <button 
-                                            onClick={() => setBlocks(prev => prev.filter(b => b.id !== block.id))} 
-                                            className="mt-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-zinc-600 hover:text-red-500 p-1 shrink-0"
-                                        >
-                                            <X size={18} />
-                                        </button>
                                     </div>
                                 )}
                             </div>
