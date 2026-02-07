@@ -85,6 +85,10 @@ export interface AppState {
   updateLead: (id: string, updates: Partial<Lead>) => void;
   addLeadHistory: (leadId: string, action: string) => void;
   deleteLead: (id: string) => void;
+
+  // Settings
+  googleSheetUrl?: string;
+  setGoogleSheetUrl: (url: string) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -96,6 +100,9 @@ export const useStore = create<AppState>()(
         { id: '1', name: 'Leads', value: 0, type: 'work', color: '#EF4444' },
       ],
       leads: [],
+      googleSheetUrl: '',
+
+      setGoogleSheetUrl: (url) => set({ googleSheetUrl: url }),
 
       setDayStatus: (date, status) =>
         set((state) => ({

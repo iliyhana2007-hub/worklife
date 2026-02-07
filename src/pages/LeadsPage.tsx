@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useStore, type Lead, type Counter } from '@/store/useStore';
-import { Plus, Minus, Briefcase, User, Clock, Trash2, Search, Settings, Check, Edit2, Copy, Clipboard } from 'lucide-react';
+import { Plus, Minus, Briefcase, User, Clock, Trash2, Search, Settings, Check, Edit2, Copy, Clipboard, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -29,11 +29,18 @@ export default function LeadsPage() {
   const { 
     counters, leads, 
     addCounter, incrementCounter, decrementCounter, toggleCounterType, updateCounterName, updateCounterColor,
-    addLead, updateLead, deleteLead
+    addLead, updateLead, deleteLead,
+    googleSheetUrl, setGoogleSheetUrl
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'counters' | 'crm'>('counters');
   
+  // Sync State
+  const [isSyncSettingsOpen, setIsSyncSettingsOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [tempUrl, setTempUrl] = useState('');
+
   // CRM Filters
   const [crmFilter, setCrmFilter] = useState<'all' | 'new' | 'responded' | 'interview' | 'rejected'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
@@ -150,6 +157,58 @@ export default function LeadsPage() {
           setLinkEditValue(text);
       } catch (err) {
           console.error('Failed to read clipboard', err);
+      }
+  };
+
+  const handleSync = async () => {
+    if (!googleSheetUrl) {
+        setTempUrl('');
+        setIsSyncSettingsOpen(true);
+        return;
+    }
+
+    setIsSyncing(true);
+    setSyncStatus('idle');
+
+    try {
+        // Prepare data
+        const dataToSync = leads.map(l => ({
+            id: l.id,
+            name: l.name,
+            status: STATUS_CONFIG[l.status]?.label || l.status,
+            link: l.link || '',
+            notes: l.notes || '',
+            date: l.firstContactDate ? format(parseISO(l.firstContactDate), 'yyyy-MM-dd HH:mm') : '',
+            source: counters.find(c => c.id === l.sourceCounterId)?.name || 'Manual',
+            history: l.history.map(h => `${format(parseISO(h.timestamp), 'dd.MM HH:mm')} - ${h.action}`).join('; ')
+        }));
+
+        await fetch(googleSheetUrl, {
+            method: 'POST',
+            mode: 'no-cors', // Important for Google Apps Script Web App
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dataToSync)
+        });
+
+        // Since no-cors doesn't return status, we assume success if no network error
+        setSyncStatus('success');
+        setTimeout(() => setSyncStatus('idle'), 3000);
+    } catch (error) {
+        console.error('Sync failed', error);
+        setSyncStatus('error');
+        setTimeout(() => setSyncStatus('idle'), 3000);
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
+  const saveSyncSettings = () => {
+      if (tempUrl) {
+          setGoogleSheetUrl(tempUrl);
+          setIsSyncSettingsOpen(false);
+          // Trigger sync immediately after save? No, let user click again to confirm.
       }
   };
 
@@ -350,13 +409,30 @@ export default function LeadsPage() {
                     )}
                 </h2>
             </div>
-            <motion.button 
-                whileTap={{ scale: 0.95 }}
-                onClick={() => openLeadSheet()}
-                className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black shadow-lg"
-            >
-                <Plus size={24} />
-            </motion.button>
+            <div className="flex gap-2">
+                <motion.button 
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSync}
+                    className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all",
+                        isSyncing ? "bg-zinc-800 text-zinc-500 animate-spin" : 
+                        syncStatus === 'success' ? "bg-green-500 text-white" :
+                        syncStatus === 'error' ? "bg-red-500 text-white" :
+                        "bg-zinc-800 text-zinc-400 hover:text-white"
+                    )}
+                >
+                    {syncStatus === 'success' ? <Check size={20} /> : 
+                     syncStatus === 'error' ? <X size={20} /> :
+                     <RefreshCw size={20} />}
+                </motion.button>
+                <motion.button 
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => openLeadSheet()}
+                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black shadow-lg"
+                >
+                    <Plus size={24} />
+                </motion.button>
+            </div>
         </div>
 
         {/* Filters */}
@@ -758,6 +834,58 @@ export default function LeadsPage() {
                                 Сохранить
                             </button>
                         </div>
+                    </div>
+                </motion.div>
+             </>
+        )}
+      </AnimatePresence>
+
+      {/* Sync Settings Modal */}
+      <AnimatePresence>
+        {isSyncSettingsOpen && (
+             <>
+                <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                    onClick={() => setIsSyncSettingsOpen(false)}
+                />
+                <motion.div 
+                    initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                    className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-zinc-900 rounded-3xl border border-white/10 z-50 p-6 shadow-2xl"
+                >
+                    <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-xl font-bold text-white">Google Sheets Sync</h3>
+                        <button onClick={() => setIsSyncSettingsOpen(false)} className="text-zinc-500 hover:text-white">
+                            <X size={24} />
+                        </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <p className="text-sm text-zinc-400 leading-relaxed">
+                            1. Создайте Google Таблицу<br/>
+                            2. Расширения {'>'} Apps Script<br/>
+                            3. Вставьте код скрипта (спросите у ассистента)<br/>
+                            4. Начать развертывание {'>'} Веб-приложение<br/>
+                            5. Доступ: "Все (Anyone)"<br/>
+                            6. Скопируйте URL ниже:
+                        </p>
+                        
+                        <div className="space-y-2">
+                            <label className="text-xs text-zinc-500 font-medium ml-1">Web App URL</label>
+                            <input 
+                                className="w-full bg-zinc-950 p-4 rounded-xl border border-white/10 text-white focus:border-white/20 outline-none text-xs"
+                                placeholder="https://script.google.com/macros/s/..."
+                                value={tempUrl}
+                                onChange={e => setTempUrl(e.target.value)}
+                            />
+                        </div>
+
+                        <button 
+                            onClick={saveSyncSettings}
+                            className="w-full py-3 bg-white text-black rounded-xl font-bold active:scale-95 transition-transform"
+                        >
+                            Сохранить
+                        </button>
                     </div>
                 </motion.div>
              </>
