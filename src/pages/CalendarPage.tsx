@@ -912,7 +912,6 @@ export default function CalendarPage() {
                                             onKeyDown={(e: React.KeyboardEvent) => handleBlockKeyDown(e, block.id, index)}
                                             onFocus={() => setActiveBlockId(block.id)}
                                             className="w-full bg-transparent text-white text-[19px] leading-relaxed resize-none focus:outline-none placeholder:text-zinc-600/70 font-normal"
-                                            placeholder="Начните писать..."
                                          />
                                     </div>
                                 ) : (
@@ -933,7 +932,6 @@ export default function CalendarPage() {
                                                 "flex-1 bg-transparent border-none p-0 text-[19px] focus:ring-0 leading-relaxed font-normal focus:outline-none placeholder:text-zinc-600/50", 
                                                 block.completed && "text-zinc-500 line-through decoration-zinc-600"
                                             )}
-                                            placeholder="Новая задача"
                                         />
                                     </div>
                                 )}
