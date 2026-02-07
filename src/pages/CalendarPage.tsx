@@ -463,6 +463,7 @@ export default function CalendarPage() {
   const [expandedYearNotes, setExpandedYearNotes] = useState<Record<string, boolean>>({});
   
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [focusPos, setFocusPos] = useState<number | null>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const blockRefs = useRef<Record<string, HTMLTextAreaElement | HTMLInputElement | null>>({});
 
@@ -635,6 +636,8 @@ export default function CalendarPage() {
       if (blocks[index].type === 'todo' && element.selectionStart === 0 && element.selectionEnd === 0) {
           e.preventDefault();
           setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'text' } : b));
+          setFocusId(id);
+          setFocusPos(0);
           return;
       }
 
@@ -672,10 +675,20 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (focusId && blockRefs.current[focusId]) {
-      blockRefs.current[focusId]?.focus();
+      const el = blockRefs.current[focusId];
+      if (el) {
+        el.focus();
+        if (focusPos !== null) {
+          // Use setTimeout to ensure focus/selection works after render
+          setTimeout(() => {
+             el.setSelectionRange(focusPos, focusPos);
+          }, 0);
+          setFocusPos(null);
+        }
+      }
       setFocusId(null);
     }
-  }, [focusId, blocks]);
+  }, [focusId, blocks, focusPos]);
 
   // Render Month View
   const renderMonth = () => {
