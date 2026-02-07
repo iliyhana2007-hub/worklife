@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore, type Lead, type Counter } from '@/store/useStore';
 import { Plus, Minus, Briefcase, User, Clock, Trash2, Search, Settings, Check, Edit2, Copy, Clipboard, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,13 @@ const STATUS_CONFIG = {
   responded: { label: 'Ответил', color: 'bg-yellow-500', text: 'text-yellow-500', border: 'border-yellow-500/20' },
   interview: { label: 'Собес', color: 'bg-green-500', text: 'text-green-500', border: 'border-green-500/20' },
   rejected: { label: 'Отказ', color: 'bg-red-500', text: 'text-red-500', border: 'border-red-500/20' },
+};
+
+const OFFER_CONFIG = {
+    model: { label: 'Модель', color: 'bg-green-500', text: 'text-green-500', border: 'border-green-500/20' },
+    agent: { label: 'Агент', color: 'bg-blue-500', text: 'text-blue-500', border: 'border-blue-500/20' },
+    chatter: { label: 'Чаттер', color: 'bg-pink-500', text: 'text-pink-500', border: 'border-pink-500/20' },
+    operator: { label: 'Оператор', color: 'bg-yellow-500', text: 'text-yellow-500', border: 'border-yellow-500/20' },
 };
 
 const COUNTER_COLORS = [
@@ -64,6 +71,9 @@ export default function LeadsPage() {
   const [linkEditLeadId, setLinkEditLeadId] = useState<string | null>(null);
   const [linkEditValue, setLinkEditValue] = useState('');
 
+  const [statusMenuOpenId, setStatusMenuOpenId] = useState<string | null>(null);
+  const [offerMenuOpenId, setOfferMenuOpenId] = useState<string | null>(null);
+
   // --- Helpers ---
   const totalStats = useMemo(() => {
       return counters.reduce((acc, c) => {
@@ -75,6 +85,55 @@ export default function LeadsPage() {
   }, [counters]);
 
   // --- Handlers ---
+  const handleLongPress = (id: string) => {
+    setStatusMenuOpenId(id);
+  };
+  
+  const handleOfferLongPress = (id: string) => {
+    setOfferMenuOpenId(id);
+  };
+
+  // Custom Long Press Hook Logic inside component
+  const useLongPress = (callback: () => void, ms = 500) => {
+      const [startLongPress, setStartLongPress] = useState(false);
+
+      useEffect(() => {
+        let timerId: any;
+        if (startLongPress) {
+          timerId = setTimeout(callback, ms);
+        } else {
+          clearTimeout(timerId);
+        }
+
+        return () => {
+          clearTimeout(timerId);
+        };
+      }, [callback, ms, startLongPress]);
+
+      return {
+        onMouseDown: () => setStartLongPress(true),
+        onMouseUp: () => setStartLongPress(false),
+        onMouseLeave: () => setStartLongPress(false),
+        onTouchStart: () => setStartLongPress(true),
+        onTouchEnd: () => setStartLongPress(false),
+      };
+  };
+  
+  const LongPressButton = ({ onClick, onLongPress, children, className, ...props }: any) => {
+    const longPressEvent = useLongPress(onLongPress, 500);
+    
+    return (
+        <button
+            onClick={onClick}
+            {...longPressEvent}
+            className={className}
+            {...props}
+        >
+            {children}
+        </button>
+    );
+  };
+
   const openCounterSheet = (counter?: Counter) => {
       if (counter) {
           setSelectedCounter(counter);
@@ -108,6 +167,15 @@ export default function LeadsPage() {
       const currentIndex = statuses.indexOf(lead.status);
       const nextStatus = statuses[(currentIndex + 1) % statuses.length];
       updateLead(lead.id, { status: nextStatus });
+  };
+
+  const cycleOffer = (lead: Lead, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const offers: Array<keyof typeof OFFER_CONFIG | undefined> = ['model', 'agent', 'chatter', 'operator', undefined];
+    const currentOffer = lead.offer;
+    const currentIndex = offers.indexOf(currentOffer);
+    const nextOffer = offers[(currentIndex + 1) % offers.length];
+    updateLead(lead.id, { offer: nextOffer });
   };
 
   const handleProfileClick = async (lead: Lead, e: React.MouseEvent) => {
@@ -176,6 +244,7 @@ export default function LeadsPage() {
             id: l.id,
             name: l.name,
             status: STATUS_CONFIG[l.status]?.label || l.status,
+            offer: l.offer ? OFFER_CONFIG[l.offer]?.label : '',
             link: l.link || '',
             notes: l.notes || '',
             date: l.firstContactDate ? format(parseISO(l.firstContactDate), 'yyyy-MM-dd HH:mm') : '',
@@ -504,17 +573,130 @@ export default function LeadsPage() {
                 >
                     <div className="flex justify-between items-start mb-2">
                         <h3 className="font-semibold text-white text-lg">{lead.name}</h3>
-                        <button 
-                            onClick={(e) => cycleLeadStatus(lead, e)}
-                            className={cn(
-                                "px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border active:scale-90 transition-transform",
-                                STATUS_CONFIG[lead.status]?.text,
-                                STATUS_CONFIG[lead.status]?.border,
-                                "bg-transparent hover:bg-white/5"
-                            )}
-                        >
-                            {STATUS_CONFIG[lead.status]?.label}
-                        </button>
+                        <div className="flex flex-col gap-2 items-end">
+                            <div className="relative">
+                                <LongPressButton
+                                    onClick={(e: any) => cycleLeadStatus(lead, e)}
+                                    onLongPress={() => handleLongPress(lead.id)}
+                                    className={cn(
+                                        "px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border active:scale-90 transition-transform",
+                                        STATUS_CONFIG[lead.status]?.text,
+                                        STATUS_CONFIG[lead.status]?.border,
+                                        "bg-transparent hover:bg-white/5 relative z-10"
+                                    )}
+                                >
+                                    {STATUS_CONFIG[lead.status]?.label}
+                                </LongPressButton>
+
+                                {/* Dropdown Menu */}
+                                <AnimatePresence>
+                                    {statusMenuOpenId === lead.id && (
+                                        <>
+                                            <div 
+                                                className="fixed inset-0 z-20" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setStatusMenuOpenId(null);
+                                                }}
+                                            />
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                                                className="absolute right-0 top-full mt-2 w-32 bg-zinc-900 rounded-xl border border-white/10 shadow-2xl z-30 overflow-hidden"
+                                            >
+                                                {(Object.keys(STATUS_CONFIG) as Array<keyof typeof STATUS_CONFIG>).map((status) => (
+                                                    <button
+                                                        key={status}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            updateLead(lead.id, { status });
+                                                            setStatusMenuOpenId(null);
+                                                        }}
+                                                        className={cn(
+                                                            "w-full px-3 py-2 text-left text-xs font-medium hover:bg-white/5 transition-colors flex items-center gap-2",
+                                                            lead.status === status ? "bg-white/5" : ""
+                                                        )}
+                                                    >
+                                                        <div className={cn("w-2 h-2 rounded-full", STATUS_CONFIG[status].color)} />
+                                                        <span className={STATUS_CONFIG[status].text}>
+                                                            {STATUS_CONFIG[status].label}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
+                            {/* Offer Button */}
+                            <div className="relative">
+                                <LongPressButton
+                                    onClick={(e: any) => cycleOffer(lead, e)}
+                                    onLongPress={() => handleOfferLongPress(lead.id)}
+                                    className={cn(
+                                        "px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border active:scale-90 transition-transform w-full text-center",
+                                        lead.offer 
+                                            ? cn(OFFER_CONFIG[lead.offer].text, OFFER_CONFIG[lead.offer].border)
+                                            : "text-zinc-600 border-zinc-800",
+                                        "bg-transparent hover:bg-white/5 relative z-10"
+                                    )}
+                                >
+                                    {lead.offer ? OFFER_CONFIG[lead.offer].label : '+ Оффер'}
+                                </LongPressButton>
+
+                                <AnimatePresence>
+                                    {offerMenuOpenId === lead.id && (
+                                        <>
+                                            <div 
+                                                className="fixed inset-0 z-20" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOfferMenuOpenId(null);
+                                                }}
+                                            />
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                                                className="absolute right-0 top-full mt-2 w-32 bg-zinc-900 rounded-xl border border-white/10 shadow-2xl z-30 overflow-hidden"
+                                            >
+                                                <button
+                                                     onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateLead(lead.id, { offer: undefined });
+                                                        setOfferMenuOpenId(null);
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left text-xs font-medium text-zinc-500 hover:bg-white/5 transition-colors"
+                                                >
+                                                    Без оффера
+                                                </button>
+                                                {(Object.keys(OFFER_CONFIG) as Array<keyof typeof OFFER_CONFIG>).map((offer) => (
+                                                    <button
+                                                        key={offer}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            updateLead(lead.id, { offer });
+                                                            setOfferMenuOpenId(null);
+                                                        }}
+                                                        className={cn(
+                                                            "w-full px-3 py-2 text-left text-xs font-medium hover:bg-white/5 transition-colors flex items-center gap-2",
+                                                            lead.offer === offer ? "bg-white/5" : ""
+                                                        )}
+                                                    >
+                                                        <div className={cn("w-2 h-2 rounded-full", OFFER_CONFIG[offer].color)} />
+                                                        <span className={OFFER_CONFIG[offer].text}>
+                                                            {OFFER_CONFIG[offer].label}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </div>
                     </div>
                     
                     <div className="flex items-center gap-2 mb-2">

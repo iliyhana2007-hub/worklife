@@ -40,6 +40,7 @@ export interface Lead {
   firstContactDate?: string; // ISO date
   notes?: string;
   status: 'new' | 'responded' | 'interview' | 'rejected';
+  offer?: 'model' | 'agent' | 'chatter' | 'operator'; // New field for offer type
   history: LeadHistoryItem[];
   isWork?: boolean;
   sourceCounterId?: string; // Links lead to specific counter
