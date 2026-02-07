@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfYear, eachMonthOfInterval, isBefore, isToday, getDay, isSameMonth, isAfter, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, FileText, Circle, CheckCircle2, Plus } from 'lucide-react';
+import { ChevronLeft, FileText, Circle, CheckCircle2, Plus } from 'lucide-react';
 import { useStore, type DayStatus, type TodoItem, type ContentBlock } from '@/store/useStore';
 import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
@@ -445,7 +445,6 @@ const InfiniteMonthScroll = ({
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'year'>('month');
-  const [direction, setDirection] = useState(0);
   const [statsModes, setStatsModes] = useState<{ month: 'count' | 'percent'; year: 'count' | 'percent' }>({
     month: 'count',
     year: 'count'
@@ -469,12 +468,6 @@ export default function CalendarPage() {
 
   // Store
   const { days, setDayStatus, setDayNote, setDayBlocks, monthNotes, setMonthNote, setMonthBlocks } = useStore();
-
-  // Navigation
-  const paginate = (newDirection: number) => {
-    setDirection(newDirection);
-    setCurrentDate(d => view === 'month' ? addMonths(d, newDirection) : addMonths(d, newDirection * 12));
-  };
 
   // Helper to calculate stats
   const calculateStats = (start: Date, end: Date) => {
@@ -846,10 +839,10 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex-1 overflow-hidden relative">
-        <AnimatePresence initial={false} custom={direction} mode="wait">
+        <AnimatePresence initial={false} custom={0} mode="wait">
             <motion.div
                 key={view}
-                custom={direction}
+                custom={0}
                 variants={variants}
                 initial="enter"
                 animate="center"
