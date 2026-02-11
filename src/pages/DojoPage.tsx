@@ -29,7 +29,7 @@ export default function DojoPage() {
 
   return (
     <div className="min-h-full bg-black p-4 pb-24 text-zinc-100">
-      <header className="mb-6 sticky top-0 z-10 bg-black/80 backdrop-blur-md py-2 -mx-4 px-4 border-b border-zinc-800">
+      <header className="mb-6 sticky top-0 z-10 bg-black/80 backdrop-blur-md pt-12 -mx-4 px-4 border-b border-zinc-800">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
             <Sword className="text-red-500" /> Додзё

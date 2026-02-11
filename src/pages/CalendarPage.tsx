@@ -807,9 +807,8 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col h-full bg-black text-white">
-      <LevelUpHeader />
-      {/* iOS Header */}
-      <div className="flex items-center px-4 pb-2 pt-safe min-h-[50px]">
+      {/* iOS Header with TG Safe Area */}
+      <div className="flex items-center px-4 pb-2 pt-12 min-h-[80px]">
         <div className="flex-1 flex justify-start min-w-0">
         </div>
 

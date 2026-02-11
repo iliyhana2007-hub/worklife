@@ -18,7 +18,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="pb-24 pt-6 px-4">
+    <div className="pb-24 pt-12 px-4">
       <div className="flex items-center gap-3 mb-8">
         <Settings className="text-zinc-400" size={24} />
         <h1 className="text-2xl font-bold text-white">Настройки</h1>
