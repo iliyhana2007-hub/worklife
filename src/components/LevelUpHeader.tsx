@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { User, Briefcase } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { SmokeBreaker } from './SmokeBreaker';
 import { calculateLevel } from '../utils/xpUtils';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Tag, Sword, Book, ChevronDown, ChevronUp, Shuffle, X, Brain } from 'lucide-react';
+import { Search, Plus, Sword, Book, ChevronDown, X, Brain } from 'lucide-react';
 import { useStore, type Objection, type Technique } from '../store/useStore';
 import { cn } from '@/lib/utils';
 import { LevelUpHeader } from '@/components/LevelUpHeader';

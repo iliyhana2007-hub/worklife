@@ -1,4 +1,3 @@
-import React from 'react';
 import { useStore, type XpResetFrequency } from '../store/useStore';
 import { Settings, RefreshCw, Moon, Sun, Bell, Volume2, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';

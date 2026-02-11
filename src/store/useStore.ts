@@ -179,7 +179,7 @@ export const useStore = create<AppState>()(
         })),
 
       resetXP: () => 
-        set((state) => ({
+          set(() => ({
           xp: { character: 0, business: 0 },
           lastXpReset: Date.now(),
           lastModified: Date.now(),
