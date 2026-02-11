@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
+import { LevelUpHeader } from '@/components/LevelUpHeader';
+import { calculateLevel, calculateTaskReward } from '@/utils/xpUtils';
 
 // --- Auto Resize Textarea ---
 const AutoResizeTextarea = ({ 
@@ -246,7 +248,6 @@ const MonthView = ({
                         const isFuture = isAfter(startOfDay(date), startOfDay(new Date()));
                         const status = isFuture ? 'neutral' : (dayData?.status || 'neutral');
                         const isTodayDate = isToday(date);
-                        const hasNote = !!dayData?.note;
                         
                         return (
                           <div 
@@ -270,10 +271,6 @@ const MonthView = ({
                                 )}>
                                     {format(date, 'd')}
                                 </div>
-                                
-                                {hasNote && (
-                                    <div className="absolute bottom-1 w-1 h-1 bg-zinc-500 rounded-full pointer-events-none" />
-                                )}
                             </motion.button>
                           </div>
                         );
@@ -467,7 +464,10 @@ export default function CalendarPage() {
   const blockRefs = useRef<Record<string, HTMLTextAreaElement | HTMLInputElement | null>>({});
 
   // Store
-  const { days, setDayStatus, setDayNote, setDayBlocks, monthNotes, setMonthNote, setMonthBlocks } = useStore();
+  const { days, setDayStatus, setDayNote, setDayBlocks, monthNotes, setMonthNote, setMonthBlocks, addXP, xp } = useStore();
+  
+  const currentLevel = calculateLevel(xp.character);
+  const taskReward = calculateTaskReward(currentLevel);
 
   // Helper to calculate stats
   const calculateStats = (start: Date, end: Date) => {
@@ -602,7 +602,23 @@ export default function CalendarPage() {
   };
 
   const handleToggleTodo = (id: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, completed: !b.completed } : b));
+    setBlocks(prev => prev.map(b => {
+        if (b.id === id) {
+            const newCompleted = !b.completed;
+            if (newCompleted) {
+                addXP('character', taskReward);
+                return { ...b, completed: newCompleted, xpReward: taskReward };
+            } else {
+                // Deduct the exact amount that was rewarded (snapshot), or fallback to current reward if missing (legacy)
+                const deduction = b.xpReward ?? taskReward;
+                addXP('character', -deduction);
+                // Remove xpReward when uncompleted
+                const { xpReward, ...rest } = b;
+                return { ...rest, completed: newCompleted };
+            }
+        }
+        return b;
+    }));
   };
 
   const handleBlockKeyDown = (e: React.KeyboardEvent, id: string, index: number) => {
@@ -628,7 +644,19 @@ export default function CalendarPage() {
       const element = e.currentTarget as HTMLTextAreaElement;
       if (blocks[index].type === 'todo' && element.selectionStart === 0 && element.selectionEnd === 0) {
           e.preventDefault();
-          setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'text' } : b));
+          if (blocks[index].completed) {
+            // Deduct the exact amount that was rewarded (snapshot), or fallback to current reward
+            const deduction = blocks[index].xpReward ?? taskReward;
+            addXP('character', -deduction);
+          }
+          // Reset xpReward when converting to text
+          setBlocks(prev => prev.map(b => {
+              if (b.id === id) {
+                  const { xpReward, ...rest } = b;
+                  return { ...rest, type: 'text' };
+              }
+              return b;
+          }));
           setFocusId(id);
           setFocusPos(0);
           return;
@@ -637,6 +665,11 @@ export default function CalendarPage() {
       if (blocks[index].content === '') {
         if (blocks.length > 1) {
             e.preventDefault();
+            if (blocks[index].type === 'todo' && blocks[index].completed) {
+                // Deduct the exact amount that was rewarded (snapshot), or fallback to current reward
+                const deduction = blocks[index].xpReward ?? taskReward;
+                addXP('character', -deduction);
+            }
             setBlocks(prev => prev.filter(b => b.id !== id));
             if (index > 0) {
                 setFocusId(blocks[index - 1].id);
@@ -774,6 +807,7 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col h-full bg-black text-white">
+      <LevelUpHeader />
       {/* iOS Header */}
       <div className="flex items-center px-4 pb-2 pt-safe min-h-[50px]">
         <div className="flex-1 flex justify-start min-w-0">
@@ -867,7 +901,7 @@ export default function CalendarPage() {
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
                 className="fixed inset-0 bg-black z-50 flex flex-col"
             >
-                <div className="flex justify-between items-center px-4 pt-safe pb-2 min-h-[50px] relative pr-14">
+                <div className="flex justify-between items-center px-4 pt-4 pb-2 relative min-h-[50px] pr-14">
                     <button 
                         onClick={saveAndClose}
                         className="flex items-center gap-1 text-[#FFD60A] active:opacity-60 transition-opacity z-10"
@@ -876,7 +910,7 @@ export default function CalendarPage() {
                         <span className="text-[17px] font-medium leading-none mb-0.5">Назад</span>
                     </button>
 
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pt-safe pointer-events-none">
+                    <div className="absolute inset-x-0 bottom-2 flex flex-col items-center justify-center pointer-events-none">
                         <span className="text-zinc-500 text-[12px] font-medium">
                             {editingMonthNote 
                                 ? (monthNoteTarget ? format(monthNoteTarget, 'd MMMM yyyy', { locale: ru }) : 'Итоги месяца') 
@@ -905,8 +939,8 @@ export default function CalendarPage() {
                     </button>
                 </div>
 
-                <div className="flex-1 px-5 pt-2 pb-safe overflow-y-auto">
-                    <div className="flex flex-col gap-3 pb-20">
+                <div className="flex-1 px-5 pt-2 pb-20 overflow-y-auto overscroll-contain">
+                    <div className="flex flex-col gap-3 pb-40">
                         {blocks.map((block, index) => (
                             <div key={block.id} className="group animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 {block.type === 'text' ? (

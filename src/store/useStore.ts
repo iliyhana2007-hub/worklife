@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { telegramStorage } from './storage';
 import { v4 as uuidv4 } from 'uuid';
+import { isSameDay, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
 
 export type DayStatus = 'neutral' | 'good' | 'bad';
 
@@ -16,6 +17,7 @@ export interface ContentBlock {
   type: 'text' | 'todo';
   content: string;
   completed?: boolean;
+  xpReward?: number; // Snapshot of XP rewarded when completed
 }
 
 export interface DayData {
@@ -61,7 +63,44 @@ export interface Counter {
   color?: string; // Hex color
 }
 
+export interface Objection {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  tags: string[];
+}
+
+export interface Technique {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+}
+
+export interface XP {
+  character: number;
+  business: number;
+}
+
+export type XpResetFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
+
+export interface Settings {
+  xpResetFrequency: XpResetFrequency;
+  language: 'ru' | 'en';
+  theme: 'dark' | 'light';
+  notificationsEnabled: boolean;
+  soundEnabled: boolean;
+}
+
 export interface AppState {
+  // Settings
+  settings: Settings;
+  lastXpReset: number; // Timestamp of last reset
+  setSettings: (settings: Partial<Settings>) => void;
+  resetXP: () => void;
+  checkXpReset: () => void;
+
   // Calendar
   days: Record<string, DayData>; // key: YYYY-MM-DD
   monthNotes: Record<string, MonthData | string>; // key: YYYY-MM (string for backward compat)
@@ -95,11 +134,25 @@ export interface AppState {
   lastModified: number; // Global timestamp for sync conflict resolution
   setFullState: (data: Partial<AppState>) => void;
   updateLastModified: () => void;
+
+  // Dojo (Objections & Techniques)
+  objections: Objection[];
+  techniques: Technique[];
+  addObjection: (objection: Omit<Objection, 'id'>) => void;
+  updateObjection: (id: string, updates: Partial<Objection>) => void;
+  deleteObjection: (id: string) => void;
+  addTechnique: (technique: Omit<Technique, 'id'>) => void;
+  updateTechnique: (id: string, updates: Partial<Technique>) => void;
+  deleteTechnique: (id: string) => void;
+
+  // Level Up System
+  xp: XP;
+  addXP: (type: 'character' | 'business', amount: number) => void;
 }
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       days: {},
       monthNotes: {},
       counters: [
@@ -108,6 +161,66 @@ export const useStore = create<AppState>()(
       leads: [],
       googleSheetUrl: '',
       lastModified: Date.now(),
+      
+      // Settings Initial State
+      settings: {
+        xpResetFrequency: 'never',
+        language: 'ru',
+        theme: 'dark',
+        notificationsEnabled: true,
+        soundEnabled: true,
+      },
+      lastXpReset: Date.now(),
+
+      setSettings: (newSettings) => 
+        set((state) => ({
+          settings: { ...state.settings, ...newSettings },
+          lastModified: Date.now(),
+        })),
+
+      resetXP: () => 
+        set((state) => ({
+          xp: { character: 0, business: 0 },
+          lastXpReset: Date.now(),
+          lastModified: Date.now(),
+        })),
+
+      checkXpReset: () => {
+        const state = get();
+        const { xpResetFrequency } = state.settings;
+        const lastReset = state.lastXpReset || 0;
+        const now = Date.now();
+        const lastDate = new Date(lastReset);
+        const currentDate = new Date(now);
+
+        let shouldReset = false;
+
+        switch (xpResetFrequency) {
+          case 'daily':
+            if (!isSameDay(lastDate, currentDate)) shouldReset = true;
+            break;
+          case 'weekly':
+            if (!isSameWeek(lastDate, currentDate, { weekStartsOn: 1 })) shouldReset = true;
+            break;
+          case 'monthly':
+            if (!isSameMonth(lastDate, currentDate)) shouldReset = true;
+            break;
+          case 'yearly':
+            if (!isSameYear(lastDate, currentDate)) shouldReset = true;
+            break;
+          case 'never':
+          default:
+            shouldReset = false;
+        }
+
+        if (shouldReset) {
+            set({
+                xp: { character: 0, business: 0 },
+                lastXpReset: now,
+                lastModified: now
+            });
+        }
+      },
 
       setGoogleSheetUrl: (url) => set({ googleSheetUrl: url }),
 
@@ -270,6 +383,55 @@ export const useStore = create<AppState>()(
           });
       },
 
+      // Dojo Actions
+      objections: [],
+      techniques: [],
+      addObjection: (objection) =>
+        set((state) => ({
+          objections: [...state.objections, { ...objection, id: uuidv4() }],
+          lastModified: Date.now(),
+        })),
+      updateObjection: (id, updates) =>
+        set((state) => ({
+          objections: state.objections.map((o) =>
+            o.id === id ? { ...o, ...updates } : o
+          ),
+          lastModified: Date.now(),
+        })),
+      deleteObjection: (id) =>
+        set((state) => ({
+          objections: state.objections.filter((o) => o.id !== id),
+          lastModified: Date.now(),
+        })),
+      addTechnique: (technique) =>
+        set((state) => ({
+          techniques: [...state.techniques, { ...technique, id: uuidv4() }],
+          lastModified: Date.now(),
+        })),
+      updateTechnique: (id, updates) =>
+        set((state) => ({
+          techniques: state.techniques.map((t) =>
+            t.id === id ? { ...t, ...updates } : t
+          ),
+          lastModified: Date.now(),
+        })),
+      deleteTechnique: (id) =>
+        set((state) => ({
+          techniques: state.techniques.filter((t) => t.id !== id),
+          lastModified: Date.now(),
+        })),
+
+      // XP Actions
+      xp: { character: 0, business: 0 },
+      addXP: (type, amount) =>
+        set((state) => ({
+          xp: {
+            ...state.xp,
+            [type]: Math.max(0, state.xp[type] + amount),
+          },
+          lastModified: Date.now(),
+        })),
+
       addLead: (lead) =>
         set((state) => ({
           leads: [
@@ -309,6 +471,9 @@ export const useStore = create<AppState>()(
     {
       name: 'worklife-storage-v2',
       storage: createJSONStorage(() => telegramStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.checkXpReset();
+      },
     }
   )
 );

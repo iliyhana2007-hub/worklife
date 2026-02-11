@@ -25,6 +25,7 @@ const OFFER_CONFIG: Record<string, { label: string }> = {
 export const useGoogleSync = () => {
     const { 
         leads, counters, days, monthNotes, googleSheetUrl, lastModified,
+        xp, settings, lastXpReset,
         setFullState 
     } = useStore();
 
@@ -46,6 +47,9 @@ export const useGoogleSync = () => {
             const exportData = {
                 type: 'sync_up',
                 lastModified: lastModified, // Send local timestamp
+                xp,
+                settings,
+                lastXpReset,
                 leads: leads.map(l => ({
                     id: l.id,
                     name: l.name,
@@ -65,17 +69,19 @@ export const useGoogleSync = () => {
                     color: c.color
                 })),
                 calendar: Object.entries(days).map(([date, data]) => ({
-                            date,
-                            status: data.status,
-                            note: data.note || '',
-                            todos: data.todos ? JSON.stringify(data.todos) : ''
-                        })),
-                        monthNotes: Object.entries(monthNotes).map(([month, data]) => ({
-                            month,
-                            note: typeof data === 'string' ? data : data.note || '',
-                            todos: typeof data !== 'string' && data.todos ? JSON.stringify(data.todos) : ''
-                        }))
-                    };
+                    date,
+                    status: data.status,
+                    note: data.note || '',
+                    todos: data.todos ? JSON.stringify(data.todos) : '',
+                    blocks: data.blocks ? JSON.stringify(data.blocks) : ''
+                })),
+                monthNotes: Object.entries(monthNotes).map(([month, data]) => ({
+                    month,
+                    note: typeof data === 'string' ? data : data.note || '',
+                    todos: typeof data !== 'string' && data.todos ? JSON.stringify(data.todos) : '',
+                    blocks: typeof data !== 'string' && data.blocks ? JSON.stringify(data.blocks) : ''
+                }))
+            };
 
                     await fetch(googleSheetUrl, {
                 method: 'POST',
@@ -91,7 +97,7 @@ export const useGoogleSync = () => {
             console.error('Export failed:', error);
             setSyncStatus('error');
         }
-    }, [googleSheetUrl, leads, counters, days, lastModified]);
+    }, [googleSheetUrl, leads, counters, days, monthNotes, xp, settings, lastXpReset, lastModified]);
 
     // --- IMPORT LOGIC ---
     const handleImport = useCallback(async (isAuto = false) => {
@@ -103,12 +109,9 @@ export const useGoogleSync = () => {
             const data = await response.json();
 
             // Check timestamps if auto-syncing
-            // Note: Google Apps Script needs to return 'lastModified' for this to work perfectly.
-            // If missing, we assume remote is newer only if manual import.
             const remoteTime = data.lastModified || 0;
             
             // If auto-syncing and local is newer/same, skip import
-            // EXCEPTION: If local state is empty (fresh install), always import
             const isLocalEmpty = leads.length === 0 && Object.keys(days).length === 0 && counters.length <= 1;
             
             if (isAuto && !isLocalEmpty && lastModified >= remoteTime && remoteTime > 0) {
@@ -127,7 +130,7 @@ export const useGoogleSync = () => {
                 link: l.link || l['Ссылка'],
                 notes: l.notes || l['Заметки'],
                 firstContactDate: l.date ? new Date(l.date).toISOString() : new Date().toISOString(),
-                history: [], // History strings are hard to parse back to objects, skipping for now or need parser
+                history: [], 
                 isWork: true,
                 createdAt: Date.now()
             }));
@@ -141,31 +144,35 @@ export const useGoogleSync = () => {
             }));
 
             const importedDays = (data.calendar || []).reduce((acc: any, d: any) => {
-                        acc[d.date || d.Date] = {
-                            status: d.status || d.Status,
-                            note: d.note || d.Note,
-                            todos: d.todos ? JSON.parse(d.todos) : undefined
-                        };
-                        return acc;
-                    }, {});
+                acc[d.date || d.Date] = {
+                    status: d.status || d.Status,
+                    note: d.note || d.Note,
+                    todos: d.todos ? JSON.parse(d.todos) : undefined,
+                    blocks: d.blocks ? JSON.parse(d.blocks) : undefined
+                };
+                return acc;
+            }, {});
 
-                    const importedMonthNotes = (data.monthNotes || []).reduce((acc: any, m: any) => {
-                        acc[m.month] = {
-                            note: m.note,
-                            todos: m.todos ? JSON.parse(m.todos) : undefined
-                        };
-                        return acc;
-                    }, {});
+            const importedMonthNotes = (data.monthNotes || []).reduce((acc: any, m: any) => {
+                acc[m.month] = {
+                    note: m.note,
+                    todos: m.todos ? JSON.parse(m.todos) : undefined,
+                    blocks: m.blocks ? JSON.parse(m.blocks) : undefined
+                };
+                return acc;
+            }, {});
 
-                    if (importedLeads.length > 0 || importedCounters.length > 0 || Object.keys(importedDays).length > 0 || Object.keys(importedMonthNotes).length > 0) {
-                        setFullState({
-                            leads: importedLeads.length ? importedLeads : leads,
-                            counters: importedCounters.length ? importedCounters : counters,
-                            days: importedDays,
-                            monthNotes: importedMonthNotes,
-                            // We update local lastModified to match remote so we don't auto-export immediately
-                            lastModified: remoteTime || Date.now() 
-                        });
+            if (importedLeads.length > 0 || importedCounters.length > 0 || Object.keys(importedDays).length > 0 || Object.keys(importedMonthNotes).length > 0) {
+                setFullState({
+                    leads: importedLeads.length ? importedLeads : leads,
+                    counters: importedCounters.length ? importedCounters : counters,
+                    days: importedDays,
+                    monthNotes: importedMonthNotes,
+                    xp: data.xp || xp,
+                    settings: data.settings || settings,
+                    lastXpReset: data.lastXpReset || lastXpReset,
+                    lastModified: remoteTime || Date.now() 
+                });
                 setImportStatus('success');
                 setTimeout(() => setImportStatus('idle'), 3000);
             }
@@ -173,7 +180,7 @@ export const useGoogleSync = () => {
             console.error('Import failed:', error);
             setImportStatus('error');
         }
-    }, [googleSheetUrl, lastModified, setFullState, leads, counters]);
+    }, [googleSheetUrl, lastModified, setFullState, leads, counters, days, xp, settings, lastXpReset]);
 
     // --- AUTO SYNC EFFECTS ---
 
