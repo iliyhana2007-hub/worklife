@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
-import { LevelUpHeader } from '@/components/LevelUpHeader';
 import { calculateLevel, calculateTaskReward } from '@/utils/xpUtils';
 
 // --- Auto Resize Textarea ---
