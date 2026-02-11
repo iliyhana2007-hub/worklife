@@ -1,0 +1,15 @@
+# Add public chat usernames here (one per line), e.g. @durov_chat
+# The script will check if the target user is a member of these groups.
+
+@durov_chat
+@python_ru
+@javascript_ru
+@react_js_ru
+@web3_ru
+@crypto_ru
+@tproger_official
+@habr_com
+@bot_collection
+@freelance_ru
+@designers_ru
+@startups_ru

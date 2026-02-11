@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, Users } from 'lucide-react';
+import { Calendar, Users, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -10,10 +10,11 @@ export default function Layout() {
   const tabs = [
     { id: 'calendar', label: 'Calendar', icon: Calendar, path: '/calendar' },
     { id: 'leads', label: 'Leads', icon: Users, path: '/leads' },
+    { id: 'search', label: 'Search', icon: Search, path: '/search' },
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
+    <div className="flex flex-col h-[100dvh] bg-background text-foreground overflow-hidden font-sans">
       <main className="flex-1 overflow-y-auto pb-24 no-scrollbar">
         <AnimatePresence mode="wait">
           <motion.div
@@ -29,7 +30,7 @@ export default function Layout() {
         </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-xl border-t border-zinc-800 pb-safe z-50">
+      <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-xl border-t border-zinc-800 pb-[env(safe-area-inset-bottom)] z-50">
         <div className="flex justify-around items-center h-[50px] pt-1">
           {tabs.map((tab) => {
             const isActive = location.pathname.startsWith(tab.path);

@@ -90,6 +90,11 @@ export interface AppState {
   // Settings
   googleSheetUrl?: string;
   setGoogleSheetUrl: (url: string) => void;
+  
+  // Sync
+  lastModified: number; // Global timestamp for sync conflict resolution
+  setFullState: (data: Partial<AppState>) => void;
+  updateLastModified: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -102,8 +107,17 @@ export const useStore = create<AppState>()(
       ],
       leads: [],
       googleSheetUrl: '',
+      lastModified: Date.now(),
 
       setGoogleSheetUrl: (url) => set({ googleSheetUrl: url }),
+
+      updateLastModified: () => set({ lastModified: Date.now() }),
+
+      setFullState: (data) => set((state) => ({
+        ...state,
+        ...data,
+        // When we import, we accept the remote timestamp
+      })),
 
       setDayStatus: (date, status) =>
         set((state) => ({
@@ -111,6 +125,7 @@ export const useStore = create<AppState>()(
             ...state.days,
             [date]: { ...state.days[date], status },
           },
+          lastModified: Date.now(),
         })),
       setDayNote: (date, note, todos) =>
         set((state) => ({
@@ -123,6 +138,7 @@ export const useStore = create<AppState>()(
               lastModified: Date.now()
             },
           },
+          lastModified: Date.now(),
         })),
       setDayBlocks: (date, blocks) =>
         set((state) => ({
@@ -134,6 +150,7 @@ export const useStore = create<AppState>()(
               lastModified: Date.now()
             },
           },
+          lastModified: Date.now(),
         })),
       setMonthNote: (month, note, todos) =>
         set((state) => ({
@@ -145,6 +162,7 @@ export const useStore = create<AppState>()(
               lastModified: Date.now()
             },
           },
+          lastModified: Date.now(),
         })),
       setMonthBlocks: (month, blocks) =>
         set((state) => ({
@@ -158,6 +176,7 @@ export const useStore = create<AppState>()(
               lastModified: Date.now()
             },
           },
+          lastModified: Date.now(),
         })),
 
       addCounter: (name, type, color) =>
@@ -165,6 +184,7 @@ export const useStore = create<AppState>()(
           if (state.counters.length >= 15) return state;
           return {
             counters: [...state.counters, { id: uuidv4(), name, value: 0, type, color: color || '#EF4444' }],
+            lastModified: Date.now(),
           };
         }),
       toggleCounterType: (id) =>
@@ -172,18 +192,21 @@ export const useStore = create<AppState>()(
           counters: state.counters.map((c) =>
             c.id === id ? { ...c, type: c.type === 'work' ? 'personal' : 'work' } : c
           ),
+          lastModified: Date.now(),
         })),
       updateCounterName: (id, name) =>
         set((state) => ({
           counters: state.counters.map((c) =>
             c.id === id ? { ...c, name } : c
           ),
+          lastModified: Date.now(),
         })),
       updateCounterColor: (id, color) =>
         set((state) => ({
           counters: state.counters.map((c) =>
             c.id === id ? { ...c, color } : c
           ),
+          lastModified: Date.now(),
         })),
       incrementCounter: (id) => {
         set((state) => {
@@ -209,7 +232,8 @@ export const useStore = create<AppState>()(
              counters: state.counters.map((c) =>
                c.id === id ? { ...c, value: c.value + 1 } : c
              ),
-             leads: newLeads
+             leads: newLeads,
+             lastModified: Date.now(),
            };
         });
       },
@@ -240,7 +264,8 @@ export const useStore = create<AppState>()(
                counters: state.counters.map((c) =>
                  c.id === id ? { ...c, value: c.value - 1 } : c
                ),
-               leads: newLeads
+               leads: newLeads,
+               lastModified: Date.now(),
              };
           });
       },
@@ -251,12 +276,14 @@ export const useStore = create<AppState>()(
             ...state.leads,
             { ...lead, id: uuidv4(), history: [], createdAt: Date.now() },
           ],
+          lastModified: Date.now(),
         })),
       updateLead: (id, updates) =>
         set((state) => ({
           leads: state.leads.map((l) =>
             l.id === id ? { ...l, ...updates } : l
           ),
+          lastModified: Date.now(),
         })),
       addLeadHistory: (leadId, action) =>
         set((state) => ({
@@ -271,10 +298,12 @@ export const useStore = create<AppState>()(
                 }
               : l
           ),
+          lastModified: Date.now(),
         })),
       deleteLead: (id) =>
         set((state) => ({
-            leads: state.leads.filter(l => l.id !== id)
+            leads: state.leads.filter(l => l.id !== id),
+            lastModified: Date.now(),
         }))
     }),
     {

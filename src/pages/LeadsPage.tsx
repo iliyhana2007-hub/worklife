@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore, type Lead, type Counter } from '@/store/useStore';
-import { Plus, Minus, Briefcase, User, Clock, Trash2, Search, Settings, Check, Edit2, Copy, Clipboard, RefreshCw, X } from 'lucide-react';
+import { useGoogleSync } from '@/hooks/useGoogleSync';
+import { Plus, Minus, Briefcase, User, Clock, Trash2, Search, Settings, Check, Edit2, Copy, Clipboard, RefreshCw, X, Zap, Upload, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,19 +35,26 @@ const COUNTER_COLORS = [
 
 export default function LeadsPage() {
   const { 
-    counters, leads, 
+    counters, leads,
     addCounter, incrementCounter, decrementCounter, toggleCounterType, updateCounterName, updateCounterColor,
     addLead, updateLead, deleteLead,
     googleSheetUrl, setGoogleSheetUrl
   } = useStore();
 
+  const { syncStatus, importStatus, handleSync, handleImport, isAutoSyncEnabled, setIsAutoSyncEnabled } = useGoogleSync();
+  const isSyncing = syncStatus === 'loading' || importStatus === 'loading';
+
   const [activeTab, setActiveTab] = useState<'counters' | 'crm'>('counters');
   
   // Sync State
   const [isSyncSettingsOpen, setIsSyncSettingsOpen] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [tempUrl, setTempUrl] = useState('');
+
+  useEffect(() => {
+    if (isSyncSettingsOpen) {
+        setTempUrl(googleSheetUrl || '');
+    }
+  }, [isSyncSettingsOpen, googleSheetUrl]);
 
   // CRM Filters
   const [crmFilter, setCrmFilter] = useState<'all' | 'new' | 'responded' | 'interview' | 'rejected'>('all');
@@ -226,51 +234,6 @@ export default function LeadsPage() {
       } catch (err) {
           console.error('Failed to read clipboard', err);
       }
-  };
-
-  const handleSync = async () => {
-    if (!googleSheetUrl) {
-        setTempUrl('');
-        setIsSyncSettingsOpen(true);
-        return;
-    }
-
-    setIsSyncing(true);
-    setSyncStatus('idle');
-
-    try {
-        // Prepare data
-        const dataToSync = leads.map(l => ({
-            id: l.id,
-            name: l.name,
-            status: STATUS_CONFIG[l.status]?.label || l.status,
-            offer: l.offer ? OFFER_CONFIG[l.offer]?.label : '',
-            link: l.link || '',
-            notes: l.notes || '',
-            date: l.firstContactDate ? format(parseISO(l.firstContactDate), 'yyyy-MM-dd HH:mm') : '',
-            source: counters.find(c => c.id === l.sourceCounterId)?.name || 'Manual',
-            history: l.history.map(h => `${format(parseISO(h.timestamp), 'dd.MM HH:mm')} - ${h.action}`).join('; ')
-        }));
-
-        await fetch(googleSheetUrl, {
-            method: 'POST',
-            mode: 'no-cors', // Important for Google Apps Script Web App
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(dataToSync)
-        });
-
-        // Since no-cors doesn't return status, we assume success if no network error
-        setSyncStatus('success');
-        setTimeout(() => setSyncStatus('idle'), 3000);
-    } catch (error) {
-        console.error('Sync failed', error);
-        setSyncStatus('error');
-        setTimeout(() => setSyncStatus('idle'), 3000);
-    } finally {
-        setIsSyncing(false);
-    }
   };
 
   const saveSyncSettings = () => {
@@ -479,21 +442,21 @@ export default function LeadsPage() {
                 </h2>
             </div>
             <div className="flex gap-2">
+                {/* Auto Sync Indicator */}
+                {isAutoSyncEnabled && (
+                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-zinc-800/50 border border-zinc-700/30 text-green-500/50">
+                        <Zap size={14} className={cn(isSyncing && "animate-pulse text-green-500")} />
+                    </div>
+                )}
+
                 <motion.button 
                     whileTap={{ scale: 0.95 }}
-                    onClick={handleSync}
-                    className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all",
-                        isSyncing ? "bg-zinc-800 text-zinc-500 animate-spin" : 
-                        syncStatus === 'success' ? "bg-green-500 text-white" :
-                        syncStatus === 'error' ? "bg-red-500 text-white" :
-                        "bg-zinc-800 text-zinc-400 hover:text-white"
-                    )}
+                    onClick={() => setIsSyncSettingsOpen(true)}
+                    className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center text-zinc-400 hover:text-white"
                 >
-                    {syncStatus === 'success' ? <Check size={20} /> : 
-                     syncStatus === 'error' ? <X size={20} /> :
-                     <RefreshCw size={20} />}
+                    <Settings size={20} />
                 </motion.button>
+
                 <motion.button 
                     whileTap={{ scale: 0.95 }}
                     onClick={() => openLeadSheet()}
@@ -1052,6 +1015,66 @@ export default function LeadsPage() {
                             6. Скопируйте URL ниже:
                         </p>
                         
+                        {/* Auto Sync Toggle */}
+                        <div className="flex items-center justify-between bg-zinc-950 p-3 rounded-xl border border-white/10">
+                            <div className="flex items-center gap-3">
+                                <div className={cn("p-2 rounded-lg", isAutoSyncEnabled ? "bg-green-500/20 text-green-500" : "bg-zinc-800 text-zinc-500")}>
+                                    <Zap size={18} />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-white">Авто-синхронизация</span>
+                                    <span className="text-[10px] text-zinc-500">Каждые 15 сек</span>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setIsAutoSyncEnabled(!isAutoSyncEnabled)}
+                                className={cn(
+                                    "w-10 h-6 rounded-full relative transition-colors",
+                                    isAutoSyncEnabled ? "bg-green-500" : "bg-zinc-700"
+                                )}
+                            >
+                                <div className={cn(
+                                    "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform",
+                                    isAutoSyncEnabled ? "translate-x-4" : "translate-x-0"
+                                )} />
+                            </button>
+                        </div>
+
+                        {/* Manual Sync Buttons */}
+                        <div className="grid grid-cols-2 gap-3">
+                             <button
+                                onClick={handleSync}
+                                className={cn(
+                                    "p-3 rounded-xl border border-white/10 flex flex-col items-center gap-2 transition-all active:scale-95",
+                                    syncStatus === 'success' ? "bg-green-500/20 text-green-500 border-green-500/50" : 
+                                    syncStatus === 'error' ? "bg-red-500/20 text-red-500 border-red-500/50" :
+                                    "bg-zinc-950 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                )}
+                            >
+                                {syncStatus === 'success' ? <Check size={20} /> : 
+                                 syncStatus === 'error' ? <X size={20} /> :
+                                 isSyncing ? <RefreshCw size={20} className="animate-spin" /> :
+                                 <Upload size={20} />}
+                                <span className="text-xs font-medium">Отправить</span>
+                            </button>
+
+                            <button
+                                onClick={handleImport}
+                                className={cn(
+                                    "p-3 rounded-xl border border-white/10 flex flex-col items-center gap-2 transition-all active:scale-95",
+                                    importStatus === 'success' ? "bg-green-500/20 text-green-500 border-green-500/50" : 
+                                    importStatus === 'error' ? "bg-red-500/20 text-red-500 border-red-500/50" :
+                                    "bg-zinc-950 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                )}
+                            >
+                                {importStatus === 'success' ? <Check size={20} /> : 
+                                 importStatus === 'error' ? <X size={20} /> :
+                                 isSyncing ? <RefreshCw size={20} className="animate-spin" /> :
+                                 <Download size={20} />}
+                                <span className="text-xs font-medium">Скачать</span>
+                            </button>
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-xs text-zinc-500 font-medium ml-1">Web App URL</label>
                             <input 
