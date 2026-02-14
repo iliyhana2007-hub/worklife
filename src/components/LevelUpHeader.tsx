@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { User, Rocket, Sparkles, Shield } from 'lucide-react';
+import { Rocket, Sparkles, Shield } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { SmokeBreaker } from './SmokeBreaker';
 import { calculateLevel } from '../utils/xpUtils';

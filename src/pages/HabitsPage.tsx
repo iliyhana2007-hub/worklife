@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Flame, CheckCircle2, Plus, ChevronLeft, ChevronRight, Settings2, X, Target, Trash, RotateCcw, Sparkles, Leaf, BarChart2 } from 'lucide-react';
+import { Flame, CheckCircle2, Plus, ChevronLeft, ChevronRight, X, Target, Trash, RotateCcw, Sparkles, BarChart2 } from 'lucide-react';
 import { useStore, type Difficulty } from '../store/useStore';
 import { cn } from '@/lib/utils';
 import { format, addDays, subDays, isToday } from 'date-fns';
