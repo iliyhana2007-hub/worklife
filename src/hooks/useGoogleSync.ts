@@ -25,7 +25,7 @@ const OFFER_CONFIG: Record<string, { label: string }> = {
 export const useGoogleSync = () => {
     const { 
         leads, counters, days, monthNotes, googleSheetUrl, lastModified,
-        xp, settings, lastXpReset,
+        xp, settings,
         setFullState 
     } = useStore();
 
@@ -49,7 +49,6 @@ export const useGoogleSync = () => {
                 lastModified: lastModified, // Send local timestamp
                 xp,
                 settings,
-                lastXpReset,
                 leads: leads.map(l => ({
                     id: l.id,
                     name: l.name,
@@ -97,7 +96,7 @@ export const useGoogleSync = () => {
             console.error('Export failed:', error);
             setSyncStatus('error');
         }
-    }, [googleSheetUrl, leads, counters, days, monthNotes, xp, settings, lastXpReset, lastModified]);
+    }, [googleSheetUrl, leads, counters, days, monthNotes, xp, settings, lastModified]);
 
     // --- IMPORT LOGIC ---
     const handleImport = useCallback(async (isAuto = false) => {
@@ -170,7 +169,6 @@ export const useGoogleSync = () => {
                     monthNotes: importedMonthNotes,
                     xp: data.xp || xp,
                     settings: data.settings || settings,
-                    lastXpReset: data.lastXpReset || lastXpReset,
                     lastModified: remoteTime || Date.now() 
                 });
                 setImportStatus('success');
@@ -180,7 +178,7 @@ export const useGoogleSync = () => {
             console.error('Import failed:', error);
             setImportStatus('error');
         }
-    }, [googleSheetUrl, lastModified, setFullState, leads, counters, days, xp, settings, lastXpReset]);
+    }, [googleSheetUrl, lastModified, setFullState, leads, counters, days, xp, settings]);
 
     // --- AUTO SYNC EFFECTS ---
 

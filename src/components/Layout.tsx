@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, Sword, Settings } from 'lucide-react';
+import { Calendar, Sword, Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -10,7 +10,7 @@ export default function Layout() {
   const tabs = [
     { id: 'calendar', label: 'Календарь', icon: Calendar, path: '/calendar' },
     { id: 'dojo', label: 'Додзё', icon: Sword, path: '/dojo' },
-    // { id: 'leads', label: 'Leads', icon: Users, path: '/leads' },
+    { id: 'profile', label: 'Герой', icon: User, path: '/profile' },
     { id: 'settings', label: 'Настройки', icon: Settings, path: '/settings' },
   ];
 

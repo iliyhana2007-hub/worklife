@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Sword, Book, ChevronDown, X, Brain } from 'lucide-react';
+import { Search, Plus, Sword, Book, ChevronDown, X, Brain, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { useStore, type Objection, type Technique } from '../store/useStore';
 import { cn } from '@/lib/utils';
 import { LevelUpHeader } from '@/components/LevelUpHeader';
 
 export default function DojoPage() {
-  const [activeTab, setActiveTab] = useState<'objections' | 'techniques'>('objections');
+  const [activeTab, setActiveTab] = useState<'objections' | 'techniques' | 'training'>('objections');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,45 +34,58 @@ export default function DojoPage() {
           <h1 className="text-2xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
             <Sword className="text-red-500" /> Додзё
           </h1>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="p-2 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors"
-          >
-            <Plus size={20} className="text-zinc-400" />
-          </button>
+          {activeTab !== 'training' && (
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="p-2 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors"
+            >
+              <Plus size={20} className="text-zinc-400" />
+            </button>
+          )}
         </div>
 
         <div className="flex gap-2 p-1 bg-zinc-900 rounded-lg mb-4">
           <button
             onClick={() => setActiveTab('objections')}
             className={cn(
-              "flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2",
+              "flex-1 py-1.5 px-2 rounded-md text-[13px] font-medium transition-all flex items-center justify-center gap-1.5",
               activeTab === 'objections' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
             )}
           >
-            <Brain size={16} /> Возражения
+            <Brain size={14} /> Возражения
           </button>
           <button
             onClick={() => setActiveTab('techniques')}
             className={cn(
-              "flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2",
+              "flex-1 py-1.5 px-2 rounded-md text-[13px] font-medium transition-all flex items-center justify-center gap-1.5",
               activeTab === 'techniques' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
             )}
           >
-            <Book size={16} /> Техники
+            <Book size={14} /> Техники
+          </button>
+          <button
+            onClick={() => setActiveTab('training')}
+            className={cn(
+              "flex-1 py-1.5 px-2 rounded-md text-[13px] font-medium transition-all flex items-center justify-center gap-1.5",
+              activeTab === 'training' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+            )}
+          >
+            <Sparkles size={14} className="text-orange-400" /> Тренировка
           </button>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-          <input
-            type="text"
-            placeholder="Поиск..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
-          />
-        </div>
+        {activeTab !== 'training' && (
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+            <input
+              type="text"
+              placeholder="Поиск..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
+            />
+          </div>
+        )}
 
         {activeTab === 'objections' && allTags.length > 0 && (
           <div className="flex gap-2 overflow-x-auto mt-3 no-scrollbar pb-1">
@@ -108,7 +121,16 @@ export default function DojoPage() {
       <main className="space-y-4">
         <LevelUpHeader />
         <AnimatePresence mode="wait">
-          {activeTab === 'objections' ? (
+          {activeTab === 'training' ? (
+            <motion.div
+              key="training"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <TrainingMode objections={objections} />
+            </motion.div>
+          ) : activeTab === 'objections' ? (
             <motion.div 
               key="objections"
               initial={{ opacity: 0, y: 10 }}
@@ -158,16 +180,110 @@ export default function DojoPage() {
       <AnimatePresence>
         {showAddModal && (
           <AddModal 
-            type={activeTab} 
+            type={activeTab === 'training' ? 'objections' : activeTab} 
             onClose={() => setShowAddModal(false)} 
             onAdd={(data) => {
-              if (activeTab === 'objections') addObjection(data as any);
+              if (activeTab === 'objections' || activeTab === 'training') addObjection(data as any);
               else addTechnique(data as any);
               setShowAddModal(false);
             }} 
           />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function TrainingMode({ objections }: { objections: Objection[] }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [shuffledCards, setShuffledCards] = useState<Objection[]>([]);
+
+  useEffect(() => {
+    setShuffledCards([...objections].sort(() => Math.random() - 0.5));
+  }, [objections]);
+
+  if (objections.length === 0) {
+    return (
+      <div className="text-center py-20 bg-zinc-900/50 rounded-2xl border border-dashed border-zinc-800">
+        <Sparkles className="mx-auto text-zinc-600 mb-4" size={40} />
+        <p className="text-zinc-400">Сначала добавь хотя бы одно возражение в Додзё</p>
+      </div>
+    );
+  }
+
+  const currentCard = shuffledCards[currentIndex];
+
+  const handleNext = () => {
+    setShowAnswer(false);
+    setTimeout(() => {
+      setCurrentIndex(prev => (prev < shuffledCards.length - 1 ? prev + 1 : 0));
+    }, 200);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center text-xs text-zinc-500 font-medium px-1">
+        <span>КАРТОЧКА {currentIndex + 1} ИЗ {shuffledCards.length}</span>
+        <button 
+          onClick={() => {
+            setShuffledCards([...objections].sort(() => Math.random() - 0.5));
+            setCurrentIndex(0);
+            setShowAnswer(false);
+          }}
+          className="flex items-center gap-1 hover:text-zinc-300"
+        >
+          <RotateCcw size={12} /> ПЕРЕМЕШАТЬ
+        </button>
+      </div>
+
+      <div 
+        className="relative h-[300px] perspective-1000"
+        onClick={() => setShowAnswer(!showAnswer)}
+      >
+        <motion.div
+          animate={{ rotateY: showAnswer ? 180 : 0 }}
+          transition={{ duration: 0.6, type: 'spring', stiffness: 260, damping: 20 }}
+          className="w-full h-full relative preserve-3d cursor-pointer"
+        >
+          {/* Front */}
+          <div className="absolute inset-0 backface-hidden bg-zinc-900 border border-zinc-800 rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-xl">
+            <span className="text-[10px] font-bold text-red-500/50 tracking-widest uppercase mb-4">Вопрос / Возражение</span>
+            <h2 className="text-xl font-bold text-white leading-tight">
+              {currentCard?.question}
+            </h2>
+            <p className="mt-8 text-xs text-zinc-500">Нажми, чтобы увидеть ответ</p>
+          </div>
+
+          {/* Back */}
+          <div className="absolute inset-0 backface-hidden bg-zinc-800 border border-zinc-700 rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-xl [transform:rotateY(180deg)] overflow-y-auto">
+            <span className="text-[10px] font-bold text-green-500/50 tracking-widest uppercase mb-4">Лучший ответ</span>
+            <p className="text-zinc-200 leading-relaxed italic">
+              «{currentCard?.answer}»
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-6 justify-center">
+              {currentCard?.tags.map(tag => (
+                <span key={tag} className="text-[10px] px-2 py-0.5 bg-zinc-900 rounded text-zinc-400">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="flex gap-4">
+        <button
+          onClick={handleNext}
+          className="flex-1 bg-white text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        >
+          <Check size={20} /> СЛЕДУЮЩЕЕ
+        </button>
+      </div>
+      
+      <p className="text-center text-xs text-zinc-500 px-4">
+        Тренируйся каждый день, чтобы твои ответы стали автоматическими и уверенными.
+      </p>
     </div>
   );
 }

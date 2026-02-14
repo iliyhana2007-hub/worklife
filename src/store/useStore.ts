@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { telegramStorage } from './storage';
 import { v4 as uuidv4 } from 'uuid';
-import { isSameDay, isSameWeek, isSameMonth, isSameYear } from 'date-fns';
+import { format } from 'date-fns';
+import { calculateHabitReward } from '../utils/xpUtils';
 
 export type DayStatus = 'neutral' | 'good' | 'bad';
 
@@ -12,12 +13,18 @@ export interface TodoItem {
   completed: boolean;
 }
 
+export type TaskTag = 'work' | 'life' | 'study' | 'other' | 'urgent';
+
+export type Difficulty = 'low' | 'medium' | 'high';
+
 export interface ContentBlock {
   id: string;
   type: 'text' | 'todo';
   content: string;
   completed?: boolean;
   xpReward?: number; // Snapshot of XP rewarded when completed
+  tag?: TaskTag;
+  difficulty?: Difficulty;
 }
 
 export interface DayData {
@@ -79,27 +86,78 @@ export interface Technique {
 }
 
 export interface XP {
-  character: number;
-  business: number;
+  total: number; // Permanent XP that never resets
 }
 
-export type XpResetFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
+export interface MarathonDailyPlan {
+  typeTasks?: {
+    work?: number;
+    life?: number;
+  };
+  specificTasks?: string[];
+  habits?: string[];
+}
+
+export interface Marathon {
+  id: string;
+  title: string;
+  goal: string;
+  startDate: string; // ISO
+  endDate: string; // ISO
+  status: 'active' | 'completed' | 'failed';
+  xpEarned: number;
+  multiplier: number;
+  dailyPlan: MarathonDailyPlan;
+  color: string;
+  isHardcore: boolean;
+  missedDays: string[]; // YYYY-MM-DD
+  completedDays: string[]; // YYYY-MM-DD
+  failureCount: number;
+}
 
 export interface Settings {
-  xpResetFrequency: XpResetFrequency;
   language: 'ru' | 'en';
   theme: 'dark' | 'light';
   notificationsEnabled: boolean;
   soundEnabled: boolean;
+  xpSettings?: {
+    tasks: {
+      low: number;
+      medium: number;
+      high: number;
+    };
+    habits: {
+      low: number;
+      medium: number;
+      high: number;
+    };
+  };
+}
+
+export interface Habit {
+  id: string;
+  name: string;
+  frequency: 'daily' | 'weekly';
+  color: string;
+  icon: string;
+  createdAt: number;
+  completedDates: string[]; // YYYY-MM-DD
+  completions?: Record<string, number>; // key: YYYY-MM-DD, value: count
+  streak: number;
+  difficulty?: Difficulty;
 }
 
 export interface AppState {
   // Settings
   settings: Settings;
-  lastXpReset: number; // Timestamp of last reset
   setSettings: (settings: Partial<Settings>) => void;
-  resetXP: () => void;
-  checkXpReset: () => void;
+
+  // Habits
+  habits: Habit[];
+  addHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'completedDates' | 'streak'>) => void;
+  toggleHabit: (id: string, date: string) => void;
+  deleteHabit: (id: string) => void;
+  updateHabitStreak: (id: string) => void;
 
   // Calendar
   days: Record<string, DayData>; // key: YYYY-MM-DD
@@ -147,7 +205,16 @@ export interface AppState {
 
   // Level Up System
   xp: XP;
-  addXP: (type: 'character' | 'business', amount: number) => void;
+  addXP: (amount: number) => void;
+  resetHabitCount: (id: string, date: string) => void;
+  decrementHabitCount: (id: string, date: string) => void;
+
+  // CalendarMarathons
+  marathons: Marathon[];
+  activeMarathonId: string | null;
+  startMarathon: (marathon: Omit<Marathon, 'id' | 'status' | 'xpEarned' | 'missedDays' | 'completedDays' | 'failureCount'>) => void;
+  updateMarathonProgress: () => void;
+  endMarathon: (id: string, success: boolean) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -164,63 +231,134 @@ export const useStore = create<AppState>()(
       
       // Settings Initial State
       settings: {
-        xpResetFrequency: 'never',
         language: 'ru',
         theme: 'dark',
         notificationsEnabled: true,
         soundEnabled: true,
+        xpSettings: {
+          tasks: {
+            low: 5,
+            medium: 10,
+            high: 20
+          },
+          habits: {
+            low: 10,
+            medium: 15,
+            high: 25
+          }
+        }
       },
-      lastXpReset: Date.now(),
+      habits: [],
+      marathons: [],
+      activeMarathonId: null,
+
+      addHabit: (habit) =>
+        set((state) => ({
+          habits: [
+            ...state.habits,
+            {
+              ...habit,
+              id: uuidv4(),
+              createdAt: Date.now(),
+              completedDates: [],
+              streak: 0,
+            },
+          ],
+          lastModified: Date.now(),
+        })),
+
+      toggleHabit: (id, date) =>
+        set((state) => {
+          let xpAdded = 0;
+          const habits = state.habits.map((h) => {
+            if (h.id === id) {
+              const completions = h.completions || {};
+              const currentCount = completions[date] || 0;
+              
+              // Increment count
+              const newCount = currentCount + 1;
+              xpAdded = calculateHabitReward(h.difficulty || 'medium', state.settings.xpSettings?.habits);
+              
+              const newCompletions = { ...completions, [date]: newCount };
+              const newCompletedDates = h.completedDates.includes(date) 
+                ? h.completedDates 
+                : [...h.completedDates, date];
+
+              return { 
+                ...h, 
+                completions: newCompletions,
+                completedDates: newCompletedDates 
+              };
+            }
+            return h;
+          });
+          
+          // Apply XP
+          if (xpAdded !== 0) {
+            const activeMarathon = state.marathons.find(m => m.id === state.activeMarathonId);
+            const multiplier = activeMarathon ? activeMarathon.multiplier : 1;
+            const adjustedAmount = xpAdded * multiplier;
+
+            state.xp.total = Math.max(0, state.xp.total + adjustedAmount);
+            
+            if (activeMarathon) {
+              state.marathons = state.marathons.map(m => 
+                m.id === state.activeMarathonId 
+                  ? { ...m, xpEarned: m.xpEarned + adjustedAmount } 
+                  : m
+              );
+            }
+          }
+          
+          // Trigger marathon progress update
+          setTimeout(() => {
+            get().updateMarathonProgress();
+            get().updateHabitStreak(id);
+          }, 0);
+          
+          return { 
+            habits, 
+            xp: { ...state.xp },
+            marathons: [...state.marathons],
+            lastModified: Date.now() 
+          };
+        }),
+
+      deleteHabit: (id) =>
+        set((state) => ({
+          habits: state.habits.filter((h) => h.id !== id),
+          lastModified: Date.now(),
+        })),
+
+      updateHabitStreak: (id) =>
+        set((state) => {
+          const habits = state.habits.map((h) => {
+            if (h.id === id) {
+              // Basic streak logic: count consecutive days from today backwards
+              let streak = 0;
+              const today = new Date();
+              for (let i = 0; i < 365; i++) {
+                const checkDate = new Date(today);
+                checkDate.setDate(today.getDate() - i);
+                const dateStr = format(checkDate, 'yyyy-MM-dd');
+                if (h.completedDates.includes(dateStr)) {
+                  streak++;
+                } else if (i > 0) { // Allow skipping today, but not previous days
+                  break;
+                }
+              }
+              return { ...h, streak };
+            }
+            return h;
+          });
+          return { habits, lastModified: Date.now() };
+        }),
 
       setSettings: (newSettings) => 
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
           lastModified: Date.now(),
         })),
-
-      resetXP: () => 
-          set(() => ({
-          xp: { character: 0, business: 0 },
-          lastXpReset: Date.now(),
-          lastModified: Date.now(),
-        })),
-
-      checkXpReset: () => {
-        const state = get();
-        const { xpResetFrequency } = state.settings;
-        const lastReset = state.lastXpReset || 0;
-        const now = Date.now();
-        const lastDate = new Date(lastReset);
-        const currentDate = new Date(now);
-
-        let shouldReset = false;
-
-        switch (xpResetFrequency) {
-          case 'daily':
-            if (!isSameDay(lastDate, currentDate)) shouldReset = true;
-            break;
-          case 'weekly':
-            if (!isSameWeek(lastDate, currentDate, { weekStartsOn: 1 })) shouldReset = true;
-            break;
-          case 'monthly':
-            if (!isSameMonth(lastDate, currentDate)) shouldReset = true;
-            break;
-          case 'yearly':
-            if (!isSameYear(lastDate, currentDate)) shouldReset = true;
-            break;
-          case 'never':
-          default:
-            shouldReset = false;
-        }
-
-        if (shouldReset) {
-            set({
-                xp: { character: 0, business: 0 },
-                lastXpReset: now,
-                lastModified: now
-            });
-        }
-      },
 
       setGoogleSheetUrl: (url) => set({ googleSheetUrl: url }),
 
@@ -253,7 +391,7 @@ export const useStore = create<AppState>()(
           },
           lastModified: Date.now(),
         })),
-      setDayBlocks: (date, blocks) =>
+      setDayBlocks: (date, blocks) => {
         set((state) => ({
           days: {
             ...state.days,
@@ -264,7 +402,9 @@ export const useStore = create<AppState>()(
             },
           },
           lastModified: Date.now(),
-        })),
+        }));
+        get().updateMarathonProgress();
+      },
       setMonthNote: (month, note, todos) =>
         set((state) => ({
           monthNotes: {
@@ -341,11 +481,33 @@ export const useStore = create<AppState>()(
                newLeads = [...state.leads, newLead];
            }
 
+           // Business XP for counters
+           const xpAdded = 10;
+           const activeMarathon = state.marathons.find(m => m.id === state.activeMarathonId);
+           const multiplier = activeMarathon ? activeMarathon.multiplier : 1;
+           const adjustedAmount = xpAdded * multiplier;
+
+           const newXp = {
+             ...state.xp,
+             total: state.xp.total + adjustedAmount
+           };
+
+           let newMarathons = state.marathons;
+           if (activeMarathon) {
+             newMarathons = state.marathons.map(m => 
+               m.id === state.activeMarathonId 
+                 ? { ...m, xpEarned: m.xpEarned + adjustedAmount } 
+                 : m
+             );
+           }
+
            return {
              counters: state.counters.map((c) =>
                c.id === id ? { ...c, value: c.value + 1 } : c
              ),
              leads: newLeads,
+             xp: newXp,
+             marathons: newMarathons,
              lastModified: Date.now(),
            };
         });
@@ -373,11 +535,24 @@ export const useStore = create<AppState>()(
                  }
              }
 
+             // Deduct business XP
+             const xpToRemove = 10;
+             const adjustedAmount = xpToRemove; // penalties are NOT multiplied
+
+             const newXp = {
+               ...state.xp,
+               total: Math.max(0, state.xp.total - adjustedAmount)
+             };
+
+             const newMarathons = state.marathons; // do not decrease marathon xpEarned on penalties
+
              return {
                counters: state.counters.map((c) =>
-                 c.id === id ? { ...c, value: c.value - 1 } : c
+                 c.id === id ? { ...c, value: Math.max(0, c.value - 1) } : c
                ),
                leads: newLeads,
+               xp: newXp,
+               marathons: newMarathons,
                lastModified: Date.now(),
              };
           });
@@ -422,14 +597,232 @@ export const useStore = create<AppState>()(
         })),
 
       // XP Actions
-      xp: { character: 0, business: 0 },
-      addXP: (type, amount) =>
+      xp: { total: 0 },
+      addXP: (amount) =>
+        set((state) => {
+          const activeMarathon = state.marathons.find(m => m.id === state.activeMarathonId);
+          const multiplier = activeMarathon ? activeMarathon.multiplier : 1;
+          const adjustedAmount = amount > 0 ? amount * multiplier : amount;
+
+          // Update marathon progress if active
+          let newMarathons = state.marathons;
+          if (activeMarathon && amount > 0) {
+            newMarathons = state.marathons.map(m => 
+              m.id === state.activeMarathonId 
+                ? { ...m, xpEarned: m.xpEarned + adjustedAmount } 
+                : m
+            );
+          }
+
+          return {
+            xp: {
+              ...state.xp,
+              total: Math.max(0, state.xp.total + adjustedAmount),
+            },
+            marathons: newMarathons,
+            lastModified: Date.now(),
+          };
+        }),
+
+      resetHabitCount: (id, date) =>
+        set((state) => {
+          const habits = state.habits.map((h) => {
+            if (h.id === id) {
+              const completions = h.completions || {};
+              const currentCount = completions[date] || 0;
+              if (currentCount === 0) return h;
+
+              // XP reduction logic
+              const baseHabitReward = calculateHabitReward(h.difficulty || 'medium', state.settings.xpSettings?.habits);
+              const xpToDeduct = baseHabitReward * currentCount; // penalties are NOT multiplied
+
+              state.xp.total = Math.max(0, state.xp.total - xpToDeduct);
+              // Do not decrease marathon xpEarned on penalties
+
+              const newCompletions = { ...completions, [date]: 0 };
+              const newCompletedDates = h.completedDates.filter(d => d !== date);
+
+              return { ...h, completions: newCompletions, completedDates: newCompletedDates };
+            }
+            return h;
+          });
+
+          // Trigger streak update
+          setTimeout(() => {
+            get().updateHabitStreak(id);
+            get().updateMarathonProgress();
+          }, 0);
+
+          return { habits, xp: { ...state.xp }, marathons: [...state.marathons], lastModified: Date.now() };
+        }),
+
+      decrementHabitCount: (id, date) =>
+        set((state) => {
+          let xpToDeduct = 0;
+          const habits = state.habits.map((h) => {
+            if (h.id === id) {
+              const completions = h.completions || {};
+              const currentCount = completions[date] || 0;
+              if (currentCount <= 0) return h;
+
+              const newCount = currentCount - 1;
+              xpToDeduct = calculateHabitReward(h.difficulty || 'medium', state.settings.xpSettings?.habits);
+
+              const newCompletions = { ...completions, [date]: newCount };
+              const newCompletedDates = newCount === 0 
+                ? h.completedDates.filter(d => d !== date)
+                : h.completedDates;
+
+              return { ...h, completions: newCompletions, completedDates: newCompletedDates };
+            }
+            return h;
+          });
+
+          if (xpToDeduct > 0) {
+            const adjustedDeduction = xpToDeduct; // penalties are NOT multiplied
+
+            state.xp.total = Math.max(0, state.xp.total - adjustedDeduction);
+            // Do not decrease marathon xpEarned on penalties
+          }
+
+          setTimeout(() => {
+            get().updateHabitStreak(id);
+            get().updateMarathonProgress();
+          }, 0);
+
+          return { habits, xp: { ...state.xp }, marathons: [...state.marathons], lastModified: Date.now() };
+        }),
+
+      startMarathon: (marathon) =>
+        set((state) => {
+          const id = uuidv4();
+          const newMarathon: Marathon = {
+            ...marathon,
+            id,
+            status: 'active',
+            xpEarned: 0,
+            missedDays: [],
+            completedDays: [],
+            failureCount: 0
+          };
+          return {
+            marathons: [...state.marathons, newMarathon],
+            activeMarathonId: id,
+            lastModified: Date.now()
+          };
+        }),
+
+      updateMarathonProgress: () =>
+        set((state) => {
+          if (!state.activeMarathonId) return state;
+          const marathon = state.marathons.find(m => m.id === state.activeMarathonId);
+          if (!marathon || marathon.status !== 'active') return state;
+
+          const todayStr = new Date().toISOString().split('T')[0];
+          
+          // Helper to check if a specific date was completed according to plan
+          const checkDateCompletion = (dateStr: string) => {
+            const dayData = state.days[dateStr];
+            if (!dayData) return false;
+            
+            const { dailyPlan } = marathon;
+            
+            // 1. Type tasks
+            if (dailyPlan.typeTasks) {
+              const blocks = dayData.blocks || [];
+              if (dailyPlan.typeTasks.work) {
+                const workCompleted = blocks.filter(b => b.tag === 'work' && b.completed).length;
+                if (workCompleted < dailyPlan.typeTasks.work) return false;
+              }
+              if (dailyPlan.typeTasks.life) {
+                const lifeCompleted = blocks.filter(b => b.tag === 'life' && b.completed).length;
+                if (lifeCompleted < dailyPlan.typeTasks.life) return false;
+              }
+            }
+
+            // 2. Specific tasks
+            if (dailyPlan.specificTasks && dailyPlan.specificTasks.length > 0) {
+              const blocks = dayData.blocks || [];
+              const completedTexts = blocks.filter(b => b.completed).map(b => b.content.toLowerCase());
+              for (const task of dailyPlan.specificTasks) {
+                if (!completedTexts.some(t => t.includes(task.toLowerCase()))) return false;
+              }
+            }
+
+            // 3. Habits
+            if (dailyPlan.habits && dailyPlan.habits.length > 0) {
+              for (const habitId of dailyPlan.habits) {
+                const habit = state.habits.find(h => h.id === habitId);
+                if (!habit || !habit.completedDates.includes(dateStr)) return false;
+              }
+            }
+            
+            return true;
+          };
+
+          // Re-calculate all days from start until today (or date)
+          const start = new Date(marathon.startDate);
+          const current = new Date(todayStr);
+          const newCompletedDays: string[] = [];
+          const newMissedDays: string[] = [];
+          
+          // Iterate through each day of the marathon up to today
+          const tempDate = new Date(start);
+          let consecutiveMisses = 0;
+          let maxConsecutiveMisses = 0;
+
+          while (tempDate <= current) {
+            const dStr = tempDate.toISOString().split('T')[0];
+            if (checkDateCompletion(dStr)) {
+              newCompletedDays.push(dStr);
+              consecutiveMisses = 0;
+            } else if (dStr < todayStr) {
+              // Only count as missed if it's in the past
+              newMissedDays.push(dStr);
+              consecutiveMisses++;
+              maxConsecutiveMisses = Math.max(maxConsecutiveMisses, consecutiveMisses);
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+          }
+
+          const newFailureCount = newMissedDays.length;
+          let newStatus: 'active' | 'failed' | 'completed' = marathon.status;
+
+          // Failure logic: 
+          // Hardcore: any miss fails
+          // Normal: 2 consecutive misses fail
+          const isFailed = marathon.isHardcore ? newFailureCount > 0 : maxConsecutiveMisses >= 2;
+          
+          if (isFailed) {
+            newStatus = 'failed';
+          } else {
+            // Check if marathon is finished successfully
+            const end = new Date(marathon.endDate);
+            if (current >= end) {
+              newStatus = 'completed';
+            }
+          }
+
+          const newMarathons = state.marathons.map(m => 
+            m.id === state.activeMarathonId 
+              ? { ...m, completedDays: newCompletedDays, missedDays: newMissedDays, failureCount: newFailureCount, status: newStatus } 
+              : m
+          );
+
+          return {
+            marathons: newMarathons,
+            activeMarathonId: newStatus === 'active' ? state.activeMarathonId : null,
+            lastModified: Date.now()
+          };
+        }),
+
+      endMarathon: (id, success) =>
         set((state) => ({
-          xp: {
-            ...state.xp,
-            [type]: Math.max(0, state.xp[type] + amount),
-          },
-          lastModified: Date.now(),
+          marathons: state.marathons.map(m => 
+            m.id === id ? { ...m, status: success ? 'completed' : 'failed' } : m
+          ),
+          activeMarathonId: state.activeMarathonId === id ? null : state.activeMarathonId,
+          lastModified: Date.now()
         })),
 
       addLead: (lead) =>
@@ -472,7 +865,7 @@ export const useStore = create<AppState>()(
       name: 'worklife-storage-v2',
       storage: createJSONStorage(() => telegramStorage),
       onRehydrateStorage: () => (state) => {
-        state?.checkXpReset();
+        state?.updateMarathonProgress();
       },
     }
   )

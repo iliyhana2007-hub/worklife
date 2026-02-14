@@ -1,8 +1,28 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfYear, eachMonthOfInterval, isBefore, isToday, getDay, isSameMonth, isAfter, startOfDay } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfYear, eachMonthOfInterval, isBefore, isToday, getDay, isSameMonth, isAfter, startOfDay, endOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ChevronLeft, FileText, Circle, CheckCircle2, Plus } from 'lucide-react';
-import { useStore, type DayStatus, type TodoItem, type ContentBlock } from '@/store/useStore';
+import { 
+  ChevronLeft, 
+  FileText, 
+  Plus, 
+  Circle, 
+  CheckCircle2, 
+  Tag as TagIcon,
+  Briefcase,
+  Heart,
+  GraduationCap,
+  AlertCircle,
+  Rocket,
+  BarChart2
+} from 'lucide-react';
+import { 
+  useStore, 
+  type DayStatus, 
+  type TodoItem,
+  type ContentBlock, 
+  type TaskTag,
+  type Difficulty
+} from '@/store/useStore';
 import { cn } from '@/lib/utils';
 import { RowStrikeThrough, BigMonthCross } from '@/components/HandDrawn';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -149,6 +169,9 @@ const MonthView = ({
   onCycleStatus: (date: Date, e: React.MouseEvent) => void;
   openMonthNote: (date: Date) => void;
 }) => {
+  const { marathons, activeMarathonId } = useStore();
+  const activeMarathon = marathons.find(m => m.id === activeMarathonId);
+  
   const start = startOfMonth(monthDate);
   const end = endOfMonth(monthDate);
   const daysInMonth = eachDayOfInterval({ start, end });
@@ -248,6 +271,13 @@ const MonthView = ({
                         const status = isFuture ? 'neutral' : (dayData?.status || 'neutral');
                         const isTodayDate = isToday(date);
                         
+                        // Check if this date is part of an active marathon
+                        const isMarathonDay = activeMarathon && 
+                          date >= startOfDay(new Date(activeMarathon.startDate)) && 
+                          date <= endOfDay(new Date(activeMarathon.endDate));
+                        const isMarathonCompleted = activeMarathon?.completedDays.includes(dateKey);
+                        const isMarathonMissed = activeMarathon?.missedDays.includes(dateKey);
+                        
                         return (
                           <div 
                             key={dateKey} 
@@ -262,13 +292,24 @@ const MonthView = ({
                               className="w-full h-full flex items-center justify-center relative z-10 touch-manipulation"
                             >
                                 <div className={cn(
-                                    "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 pointer-events-none",
+                                    "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 pointer-events-none relative",
                                     status === 'neutral' && isTodayDate && "border border-white text-white font-semibold", 
                                     status === 'neutral' && !isTodayDate && "text-white",
                                     status === 'good' && "bg-white text-black font-semibold", 
                                     status === 'bad' && "bg-red-500 text-white font-semibold", 
                                 )}>
                                     {format(date, 'd')}
+                                    
+                                    {/* Marathon indicators */}
+                                    {isMarathonDay && (
+                                      <div 
+                                        className={cn(
+                                          "absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full transition-all",
+                                          isMarathonCompleted ? "bg-green-500" : isMarathonMissed ? "bg-red-500" : "bg-yellow-500/50"
+                                        )}
+                                        style={!isMarathonCompleted && !isMarathonMissed ? { backgroundColor: `${activeMarathon.color}80` } : {}}
+                                      />
+                                    )}
                                 </div>
                             </motion.button>
                           </div>
@@ -438,6 +479,131 @@ const InfiniteMonthScroll = ({
   );
 };
 
+const TAG_CONFIG: Record<TaskTag, { icon: any, label: string, color: string, bg: string }> = {
+  work: { icon: Briefcase, label: 'Работа', color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  life: { icon: Heart, label: 'Жизнь', color: 'text-rose-400', bg: 'bg-rose-500/10' },
+  study: { icon: GraduationCap, label: 'Учеба', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  urgent: { icon: AlertCircle, label: 'Срочно', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  other: { icon: TagIcon, label: 'Другое', color: 'text-zinc-400', bg: 'bg-zinc-500/10' }
+};
+
+const DIFFICULTY_CONFIG: Record<Difficulty, { label: string, color: string, bg: string }> = {
+  low: { label: 'Низкая', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  medium: { label: 'Средняя', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+  high: { label: 'Высокая', color: 'text-red-400', bg: 'bg-red-500/10' }
+};
+
+function DifficultyPicker({ currentDifficulty, onSelect }: { currentDifficulty: Difficulty, onSelect: (difficulty: Difficulty) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+     <div className="relative">
+       <button 
+         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+         className={cn(
+           "flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all border border-transparent",
+           DIFFICULTY_CONFIG[currentDifficulty || 'medium'].bg,
+           DIFFICULTY_CONFIG[currentDifficulty || 'medium'].color,
+           isOpen && "border-white/20"
+         )}
+       >
+           <BarChart2 size={10} strokeWidth={3} />
+           <span>{DIFFICULTY_CONFIG[currentDifficulty || 'medium'].label}</span>
+         </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                className="absolute left-0 top-full mt-1 z-50 bg-zinc-900 border border-zinc-800 rounded-xl p-1 shadow-2xl min-w-[120px]"
+              >
+                {(['low', 'medium', 'high'] as const).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      onSelect(d);
+                      setIsOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-zinc-800",
+                      d === currentDifficulty ? "text-white bg-zinc-800" : "text-zinc-400"
+                    )}
+                  >
+                    <BarChart2 size={12} className={DIFFICULTY_CONFIG[d].color} />
+                    <span>{DIFFICULTY_CONFIG[d].label}</span>
+                  </button>
+                ))}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+    </div>
+  );
+}
+
+function TagPicker({ currentTag, onSelect }: { currentTag: TaskTag, onSelect: (tag: TaskTag) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+     <div className="relative">
+       <button 
+         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+         className={cn(
+           "flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all border border-transparent",
+           TAG_CONFIG[currentTag].bg,
+           TAG_CONFIG[currentTag].color,
+           isOpen && "border-white/20"
+         )}
+       >
+           {(() => {
+             const Icon = TAG_CONFIG[currentTag].icon;
+             return Icon ? <Icon size={10} strokeWidth={3} /> : null;
+           })()}
+           <span>{TAG_CONFIG[currentTag].label}</span>
+         </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                className="absolute left-0 top-full mt-1 z-50 bg-zinc-900 border border-zinc-800 rounded-xl p-1 shadow-2xl min-w-[120px]"
+              >
+                {(Object.keys(TAG_CONFIG) as TaskTag[]).map(tag => {
+                  const Icon = TAG_CONFIG[tag].icon;
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        onSelect(tag);
+                        setIsOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-zinc-800",
+                        tag === currentTag ? "text-white bg-zinc-800" : "text-zinc-400"
+                      )}
+                    >
+                      {Icon && <Icon size={12} className={TAG_CONFIG[tag].color} />}
+                      <span>{TAG_CONFIG[tag].label}</span>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+    </div>
+  );
+}
+
+// --- Habits Component ---
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'year'>('month');
@@ -463,9 +629,48 @@ export default function CalendarPage() {
   const blockRefs = useRef<Record<string, HTMLTextAreaElement | HTMLInputElement | null>>({});
 
   // Store
-  const { days, setDayStatus, setDayNote, setDayBlocks, monthNotes, setMonthNote, setMonthBlocks, addXP, xp } = useStore();
+  const { 
+    days, 
+    monthNotes, 
+    setDayStatus, 
+    setDayNote, 
+    setDayBlocks, 
+    setMonthNote, 
+    setMonthBlocks, 
+    addXP, 
+    xp,
+    habits,
+    marathons,
+    activeMarathonId,
+    settings
+  } = useStore();
+
+  // Auto-save blocks to store whenever they change
+  useEffect(() => {
+    if (!isNoteOpen && !editingMonthNote) return;
+    if (blocks.length === 0) return;
+
+    const previewText = blocks
+      .map(b => b.type === 'todo' ? (b.completed ? '[x] ' : '[ ] ') + b.content : b.content)
+      .join('\n');
+
+    if (editingMonthNote) {
+      const target = monthNoteTarget || currentDate;
+      const key = format(target, 'yyyy-MM');
+      // Use actions from the hook
+      setMonthBlocks(key, blocks);
+      setMonthNote(key, previewText, []);
+    } else if (selectedDate) {
+      const dateKey = format(selectedDate, 'yyyy-MM-dd');
+      // Use actions from the hook
+      setDayBlocks(dateKey, blocks);
+      setDayNote(dateKey, previewText, []);
+    }
+  }, [blocks, editingMonthNote, monthNoteTarget, selectedDate, isNoteOpen, currentDate, setMonthBlocks, setMonthNote, setDayBlocks, setDayNote]);
   
-  const currentLevel = calculateLevel(xp.character);
+  const activeMarathon = marathons.find(m => m.id === activeMarathonId);
+  
+  const currentLevel = calculateLevel(xp.total);
   const taskReward = calculateTaskReward(currentLevel);
 
   // Helper to calculate stats
@@ -568,23 +773,11 @@ export default function CalendarPage() {
   };
 
   const saveAndClose = () => {
-      // Generate preview text
-      const previewText = blocks
-        .map(b => b.type === 'todo' ? (b.completed ? '[x] ' : '[ ] ') + b.content : b.content)
-        .join('\n');
-
       if (editingMonthNote) {
-          const target = monthNoteTarget || currentDate;
-          const key = format(target, 'yyyy-MM');
-          setMonthBlocks(key, blocks);
-          setMonthNote(key, previewText, []); // Update legacy note
           setEditingMonthNote(false);
           setMonthNoteTarget(null);
       } else {
           if (selectedDate) {
-              const dateKey = format(selectedDate, 'yyyy-MM-dd');
-              setDayBlocks(dateKey, blocks);
-              setDayNote(dateKey, previewText, []); // Update legacy note
               setIsNoteOpen(false);
           }
       }
@@ -594,23 +787,32 @@ export default function CalendarPage() {
     // Check for todo conversion pattern
     if (content.startsWith('[] ') || content.startsWith('[ ] ')) {
         const cleanContent = content.replace(/^\[\s?\]\s/, '');
-        setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'todo', content: cleanContent, completed: false } : b));
+        setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'todo', content: cleanContent, completed: false, tag: 'other', difficulty: 'medium' } : b));
         return;
     }
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content } : b));
+  };
+
+  const handleTagChange = (id: string, tag: TaskTag) => {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, tag } : b));
+  };
+
+  const handleDifficultyChange = (id: string, difficulty: Difficulty) => {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, difficulty } : b));
   };
 
   const handleToggleTodo = (id: string) => {
     setBlocks(prev => prev.map(b => {
         if (b.id === id) {
             const newCompleted = !b.completed;
+            const reward = calculateTaskReward(currentLevel, b.difficulty || 'medium', settings.xpSettings?.tasks);
             if (newCompleted) {
-                addXP('character', taskReward);
-                return { ...b, completed: newCompleted, xpReward: taskReward };
+                addXP(reward);
+                return { ...b, completed: newCompleted, xpReward: reward };
             } else {
                 // Deduct the exact amount that was rewarded (snapshot), or fallback to current reward if missing (legacy)
-                const deduction = b.xpReward ?? taskReward;
-                addXP('character', -deduction);
+                const deduction = b.xpReward ?? reward;
+                addXP(-deduction);
                 // Remove xpReward when uncompleted
                 const { xpReward, ...rest } = b;
                 return { ...rest, completed: newCompleted };
@@ -646,7 +848,7 @@ export default function CalendarPage() {
           if (blocks[index].completed) {
             // Deduct the exact amount that was rewarded (snapshot), or fallback to current reward
             const deduction = blocks[index].xpReward ?? taskReward;
-            addXP('character', -deduction);
+            addXP(-deduction);
           }
           // Reset xpReward when converting to text
           setBlocks(prev => prev.map(b => {
@@ -667,7 +869,7 @@ export default function CalendarPage() {
             if (blocks[index].type === 'todo' && blocks[index].completed) {
                 // Deduct the exact amount that was rewarded (snapshot), or fallback to current reward
                 const deduction = blocks[index].xpReward ?? taskReward;
-                addXP('character', -deduction);
+                addXP(-deduction);
             }
             setBlocks(prev => prev.filter(b => b.id !== id));
             if (index > 0) {
@@ -681,7 +883,7 @@ export default function CalendarPage() {
 
   const handleAddBlock = () => {
       const newId = uuidv4();
-      const newBlock: ContentBlock = { id: newId, type: 'todo', content: '', completed: false };
+      const newBlock: ContentBlock = { id: newId, type: 'todo', content: '', completed: false, tag: 'other' };
       
       setBlocks(prev => {
           if (activeBlockId) {
@@ -809,6 +1011,16 @@ export default function CalendarPage() {
       {/* iOS Header with TG Safe Area */}
       <div className="flex items-center px-4 pb-2 pt-12 min-h-[80px]">
         <div className="flex-1 flex justify-start min-w-0">
+          {activeMarathon && (
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="bg-yellow-500 text-black p-1.5 rounded-full shadow-lg shadow-yellow-500/20"
+              title={`Активен марафон: ${activeMarathon.title}`}
+            >
+              <Rocket size={16} />
+            </motion.div>
+          )}
         </div>
 
         <div className="flex-none flex justify-center">
@@ -852,6 +1064,39 @@ export default function CalendarPage() {
       </div>
 
       <div className="border-b border-zinc-900 bg-black z-10">
+          {activeMarathon && view === 'month' && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mx-4 mb-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-center justify-between"
+            >
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <Rocket size={12} className="text-yellow-500" />
+                  <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-wider">
+                    Марафон: {activeMarathon.title} (x{activeMarathon.multiplier} XP)
+                  </span>
+                </div>
+                {activeMarathon.goal && (
+                  <span className="text-[8px] text-zinc-400 font-medium ml-5 line-clamp-1">
+                    Цель: {activeMarathon.goal}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-12 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-yellow-500" 
+                    style={{ width: `${Math.min(100, (activeMarathon.completedDays.length / (Math.ceil((new Date(activeMarathon.endDate).getTime() - new Date(activeMarathon.startDate).getTime()) / (1000 * 60 * 60 * 24)) || 1)) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[8px] font-black text-zinc-500">
+                  {activeMarathon.completedDays.length} дн.
+                </span>
+              </div>
+            </motion.div>
+          )}
+
           <StatsWidget 
             stats={currentStats} 
             mode={statsModes[view]} 
@@ -938,9 +1183,120 @@ export default function CalendarPage() {
                 </div>
 
                 <div className="flex-1 px-5 pt-2 pb-20 overflow-y-auto overscroll-contain">
+                    {!editingMonthNote && selectedDate && (
+                      <>
+                        {/* Status Buttons */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          {(['good', 'neutral', 'bad'] as DayStatus[]).map((status) => {
+                            const dateKey = format(selectedDate, 'yyyy-MM-dd');
+                            const dayData = days[dateKey];
+                            return (
+                              <button
+                                key={status}
+                                onClick={() => setDayStatus(dateKey, status)}
+                                className={cn(
+                                  "py-3 rounded-2xl border transition-all flex flex-col items-center gap-1",
+                                  dayData?.status === status 
+                                    ? status === 'good' ? "bg-white border-white text-black shadow-lg shadow-white/10"
+                                      : status === 'bad' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/10"
+                                      : "bg-zinc-800 border-zinc-700 text-white"
+                                    : "bg-zinc-900 border-zinc-800 text-zinc-500"
+                                )}
+                              >
+                                <div className={cn(
+                                  "w-2 h-2 rounded-full",
+                                  status === 'good' ? "bg-current" : status === 'bad' ? "bg-current" : "bg-zinc-700"
+                                )} />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">
+                                  {status === 'good' ? 'Good' : status === 'bad' ? 'Bad' : 'Neutral'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {activeMarathon && (
+                          <div className="mx-4 mb-4 p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-2xl">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Rocket size={14} className="text-yellow-500" />
+                              <span className="text-[11px] font-bold text-yellow-500 uppercase tracking-widest">План Минимум</span>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              {activeMarathon.dailyPlan.typeTasks?.work && (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-zinc-400">Рабочие задачи</span>
+                                    {blocks.filter(b => b.tag === 'work' && b.completed).length >= (activeMarathon.dailyPlan.typeTasks.work || 0) && (
+                                      <CheckCircle2 size={10} className="text-green-500" />
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-bold text-white">
+                                    {blocks.filter(b => b.tag === 'work' && b.completed).length} / {activeMarathon.dailyPlan.typeTasks.work}
+                                  </span>
+                                </div>
+                              )}
+                              {activeMarathon.dailyPlan.typeTasks?.life && (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-zinc-400">Личные задачи</span>
+                                    {blocks.filter(b => b.tag === 'life' && b.completed).length >= (activeMarathon.dailyPlan.typeTasks.life || 0) && (
+                                      <CheckCircle2 size={10} className="text-green-500" />
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-bold text-white">
+                                    {blocks.filter(b => b.tag === 'life' && b.completed).length} / {activeMarathon.dailyPlan.typeTasks.life}
+                                  </span>
+                                </div>
+                              )}
+                              {activeMarathon.dailyPlan.specificTasks && activeMarathon.dailyPlan.specificTasks.length > 0 && (
+                                <div className="mt-1 pt-2 border-t border-zinc-800/50">
+                                  <span className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Спец. задачи</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {activeMarathon.dailyPlan.specificTasks.map(task => {
+                                      const isDone = blocks.some(b => b.completed && b.content.toLowerCase().includes(task.toLowerCase()));
+                                      return (
+                                        <div key={task} className={cn(
+                                          "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                                          isDone ? "bg-green-500/20 text-green-500" : "bg-zinc-800 text-zinc-500"
+                                        )}>
+                                          {task}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              {activeMarathon.dailyPlan.habits && activeMarathon.dailyPlan.habits.length > 0 && (
+                                <div className="mt-1 pt-2 border-t border-zinc-800/50">
+                                  <span className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Привычки</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {activeMarathon.dailyPlan.habits.map(habitId => {
+                                      const habit = habits.find(h => h.id === habitId);
+                                      const isDone = habit?.completedDates.includes(format(selectedDate, 'yyyy-MM-dd'));
+                                      return (
+                                        <div key={habitId} className={cn(
+                                          "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                                          isDone ? "bg-green-500/20 text-green-500" : "bg-zinc-800 text-zinc-500"
+                                        )}>
+                                          {habit?.name || 'Habit'}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     <div className="flex flex-col gap-3 pb-40">
                         {blocks.map((block, index) => (
-                            <div key={block.id} className="group animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div key={block.id} className={cn(
+                                "group animate-in fade-in slide-in-from-bottom-2 duration-300 p-3 rounded-2xl transition-all border border-transparent",
+                                activeBlockId === block.id ? "bg-zinc-900/40 border-zinc-800/50 shadow-xl shadow-black/20" : "hover:bg-zinc-900/20"
+                            )}>
                                 {block.type === 'text' ? (
                                     <div className="flex items-start gap-2">
                                          <AutoResizeTextarea
@@ -956,21 +1312,34 @@ export default function CalendarPage() {
                                     <div className="flex items-start gap-3">
                                         <button 
                                             onClick={() => handleToggleTodo(block.id)}
-                                            className="mt-1 text-zinc-400 hover:text-[#FFD60A] transition-colors shrink-0"
+                                            className="mt-1 text-zinc-400 hover:text-[#FFD60A] transition-all shrink-0 active:scale-90"
                                         >
-                                            {block.completed ? <CheckCircle2 size={22} className="text-[#FFD60A]" /> : <Circle size={22} />}
+                                            {block.completed ? <CheckCircle2 size={24} className="text-[#FFD60A] drop-shadow-[0_0_8px_rgba(255,214,10,0.4)]" /> : <Circle size={24} className="text-zinc-600" />}
                                         </button>
-                                        <AutoResizeTextarea
-                                            inputRef={(el: HTMLTextAreaElement | null) => { blockRefs.current[block.id] = el }}
-                                            value={block.content} 
-                                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleBlockChange(block.id, e.target.value)}
-                                            onKeyDown={(e: React.KeyboardEvent) => handleBlockKeyDown(e, block.id, index)}
-                                            onFocus={() => setActiveBlockId(block.id)}
-                                            className={cn(
-                                                "flex-1 bg-transparent border-none p-0 text-[19px] focus:ring-0 leading-relaxed font-normal focus:outline-none placeholder:text-zinc-600/50", 
-                                                block.completed && "text-zinc-500 line-through decoration-zinc-600"
-                                            )}
-                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <TagPicker 
+                                                    currentTag={block.tag || 'other'} 
+                                                    onSelect={(tag) => handleTagChange(block.id, tag)} 
+                                                />
+                                                <DifficultyPicker
+                                                    currentDifficulty={block.difficulty || 'medium'}
+                                                    onSelect={(difficulty) => handleDifficultyChange(block.id, difficulty)}
+                                                />
+                                            </div>
+                                            <AutoResizeTextarea
+                                                inputRef={(el: HTMLTextAreaElement | null) => { blockRefs.current[block.id] = el }}
+                                                value={block.content} 
+                                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleBlockChange(block.id, e.target.value)}
+                                                onKeyDown={(e: React.KeyboardEvent) => handleBlockKeyDown(e, block.id, index)}
+                                                onFocus={() => setActiveBlockId(block.id)}
+                                                placeholder="Что нужно сделать?"
+                                                className={cn(
+                                                    "w-full bg-transparent border-none p-0 text-[19px] focus:ring-0 leading-relaxed font-medium focus:outline-none placeholder:text-zinc-600/50 transition-all", 
+                                                    block.completed ? "text-zinc-500 line-through decoration-zinc-600/50" : "text-white"
+                                                )}
+                                            />
+                                        </div>
                                     </div>
                                 )}
                             </div>
