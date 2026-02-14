@@ -94,7 +94,7 @@ export interface MarathonDailyPlan {
     work?: number;
     life?: number;
   };
-  specificTasks?: string[];
+  specificTasks?: { text: string; tag?: TaskTag }[];
   habits?: string[];
 }
 
@@ -743,9 +743,16 @@ export const useStore = create<AppState>()(
             // 2. Specific tasks
             if (dailyPlan.specificTasks && dailyPlan.specificTasks.length > 0) {
               const blocks = dayData.blocks || [];
-              const completedTexts = blocks.filter(b => b.completed).map(b => b.content.toLowerCase());
-              for (const task of dailyPlan.specificTasks) {
-                if (!completedTexts.some(t => t.includes(task.toLowerCase()))) return false;
+              for (const item of dailyPlan.specificTasks) {
+                const requiredTag = item.tag;
+                const requiredText = item.text.toLowerCase();
+                const ok = blocks.some(b => {
+                  if (!b.completed) return false;
+                  const textMatch = (b.content || '').toLowerCase().includes(requiredText);
+                  const tagMatch = requiredTag ? (b.tag === requiredTag) : true;
+                  return textMatch && tagMatch;
+                });
+                if (!ok) return false;
               }
             }
 

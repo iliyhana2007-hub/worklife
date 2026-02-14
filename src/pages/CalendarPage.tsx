@@ -1252,14 +1252,19 @@ export default function CalendarPage() {
                                 <div className="mt-1 pt-2 border-t border-zinc-800/50">
                                   <span className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Спец. задачи</span>
                                   <div className="flex flex-wrap gap-1">
-                                    {activeMarathon.dailyPlan.specificTasks.map(task => {
-                                      const isDone = blocks.some(b => b.completed && b.content.toLowerCase().includes(task.toLowerCase()));
+                                    {activeMarathon.dailyPlan.specificTasks.map((task, idx) => {
+                                      const isDone = blocks.some(b => {
+                                        if (!b.completed) return false;
+                                        const textMatch = (b.content || '').toLowerCase().includes(task.text.toLowerCase());
+                                        const tagMatch = task.tag ? (b.tag === task.tag) : true;
+                                        return textMatch && tagMatch;
+                                      });
                                       return (
-                                        <div key={task} className={cn(
+                                        <div key={idx} className={cn(
                                           "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                                           isDone ? "bg-green-500/20 text-green-500" : "bg-zinc-800 text-zinc-500"
                                         )}>
-                                          {task}
+                                          {task.text}{task.tag ? ` (${task.tag})` : ''}
                                         </div>
                                       );
                                     })}

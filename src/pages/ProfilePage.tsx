@@ -21,7 +21,7 @@ import {
   Leaf,
   Shield
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, type TaskTag } from '../store/useStore';
 import { calculateLevel, calculateHabitReward } from '../utils/xpUtils';
 import { cn } from '@/lib/utils';
 import { LevelUpHeader } from '@/components/LevelUpHeader';
@@ -53,12 +53,13 @@ export default function ProfilePage() {
     isHardcore: false,
     dailyPlan: {
       typeTasks: { work: 0, life: 0 },
-      specificTasks: [] as string[],
+      specificTasks: [] as { text: string; tag?: TaskTag }[],
       habits: [] as string[]
     }
   });
 
   const [tempSpecificTask, setTempSpecificTask] = useState('');
+  const [tempSpecificTaskTag, setTempSpecificTaskTag] = useState<TaskTag>('work');
 
   const calculateMultiplier = (duration: number, isHardcore: boolean) => {
     const base = 1.0 + (duration / 14); // 2 days -> 1.14, 14 days -> 2.0
@@ -629,7 +630,7 @@ export default function ProfilePage() {
                 <button onClick={() => setShowMarathonModal(false)} className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center text-zinc-500"><X size={20} /></button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
+              <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
                 {/* Basic Info */}
                 <section className="space-y-4">
                   <div className="space-y-2">
@@ -778,6 +779,20 @@ export default function ProfilePage() {
                           onChange={e => setTempSpecificTask(e.target.value)}
                           className="flex-1 bg-zinc-900 border-zinc-700 rounded-xl px-3 py-2 text-xs text-white outline-none"
                         />
+                        <div className="flex gap-1">
+                          {(['work','life','study','urgent','other'] as TaskTag[]).map(tag => (
+                            <button
+                              key={tag}
+                              onClick={() => setTempSpecificTaskTag(tag)}
+                              className={cn(
+                                "px-2 py-1 rounded-lg text-[10px] uppercase font-bold border",
+                                tempSpecificTaskTag === tag ? "bg-yellow-500 text-black border-yellow-500" : "bg-zinc-900 text-zinc-400 border-zinc-700"
+                              )}
+                            >
+                              {tag === 'work' ? 'Work' : tag === 'life' ? 'Life' : tag === 'study' ? 'Учеба' : tag === 'urgent' ? 'Срочно' : 'Другое'}
+                            </button>
+                          ))}
+                        </div>
                         <button 
                           onClick={() => {
                             if (!tempSpecificTask.trim()) return;
@@ -785,7 +800,7 @@ export default function ProfilePage() {
                               ...newMarathon,
                               dailyPlan: {
                                 ...newMarathon.dailyPlan,
-                                specificTasks: [...newMarathon.dailyPlan.specificTasks, tempSpecificTask.trim()]
+                                specificTasks: [...newMarathon.dailyPlan.specificTasks, { text: tempSpecificTask.trim(), tag: tempSpecificTaskTag }]
                               }
                             });
                             setTempSpecificTask('');
@@ -794,14 +809,15 @@ export default function ProfilePage() {
                         >Добавить</button>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {newMarathon.dailyPlan.specificTasks.map(t => (
-                          <div key={t} className="bg-zinc-900 border border-zinc-700 px-2 py-1 rounded-lg flex items-center gap-2">
-                            <span className="text-[10px] text-zinc-300">{t}</span>
+                        {newMarathon.dailyPlan.specificTasks.map((t, idx) => (
+                          <div key={`${t.text}-${t.tag}-${idx}`} className="bg-zinc-900 border border-zinc-700 px-2 py-1 rounded-lg flex items-center gap-2">
+                            <span className="text-[10px] text-zinc-300">{t.text}</span>
+                            {t.tag && <span className="text-[10px] text-yellow-500 font-bold uppercase">{t.tag}</span>}
                             <button onClick={() => setNewMarathon({
                               ...newMarathon,
                               dailyPlan: {
                                 ...newMarathon.dailyPlan,
-                                specificTasks: newMarathon.dailyPlan.specificTasks.filter(item => item !== t)
+                                specificTasks: newMarathon.dailyPlan.specificTasks.filter((_, i) => i !== idx)
                               }
                             })}><X size={10} /></button>
                           </div>
@@ -856,7 +872,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="p-6 bg-zinc-900 border-t border-zinc-800">
+              <div className="p-6 bg-zinc-900 border-t border-zinc-800" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
                 <button 
                   onClick={handleStartMarathon}
                   className="w-full py-4 bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl active:scale-95 transition-transform shadow-lg shadow-yellow-500/10"
