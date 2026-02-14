@@ -94,7 +94,9 @@ export interface MarathonDailyPlan {
     work?: number;
     life?: number;
   };
-  specificTasks?: { text: string; tag?: TaskTag }[];
+  // Optional difficulty requirement per tag for typeTasks
+  typeDifficulty?: Partial<Record<TaskTag, Difficulty>>;
+  specificTasks?: { text: string; tag?: TaskTag; difficulty?: Difficulty }[];
   habits?: string[];
 }
 
@@ -748,11 +750,19 @@ export const useStore = create<AppState>()(
             if (dailyPlan.typeTasks) {
               const blocks = dayData.blocks || [];
               if (dailyPlan.typeTasks.work) {
-                const workCompleted = blocks.filter(b => b.tag === 'work' && b.completed).length;
+                const requiredDiff = dailyPlan.typeDifficulty?.work;
+                const workCompleted = blocks.filter(b => {
+                  if (!(b.tag === 'work' && b.completed)) return false;
+                  return requiredDiff ? ((b.difficulty || 'medium') === requiredDiff) : true;
+                }).length;
                 if (workCompleted < dailyPlan.typeTasks.work) return false;
               }
               if (dailyPlan.typeTasks.life) {
-                const lifeCompleted = blocks.filter(b => b.tag === 'life' && b.completed).length;
+                const requiredDiff = dailyPlan.typeDifficulty?.life;
+                const lifeCompleted = blocks.filter(b => {
+                  if (!(b.tag === 'life' && b.completed)) return false;
+                  return requiredDiff ? ((b.difficulty || 'medium') === requiredDiff) : true;
+                }).length;
                 if (lifeCompleted < dailyPlan.typeTasks.life) return false;
               }
             }
@@ -762,12 +772,14 @@ export const useStore = create<AppState>()(
               const blocks = dayData.blocks || [];
               for (const item of dailyPlan.specificTasks) {
                 const requiredTag = item.tag;
+                const requiredDiff = item.difficulty;
                 const requiredText = item.text.toLowerCase();
                 const ok = blocks.some(b => {
                   if (!b.completed) return false;
                   const textMatch = (b.content || '').toLowerCase().includes(requiredText);
                   const tagMatch = requiredTag ? (b.tag === requiredTag) : true;
-                  return textMatch && tagMatch;
+                  const diffMatch = requiredDiff ? ((b.difficulty || 'medium') === requiredDiff) : true;
+                  return textMatch && tagMatch && diffMatch;
                 });
                 if (!ok) return false;
               }

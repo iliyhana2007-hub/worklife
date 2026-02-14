@@ -1257,14 +1257,15 @@ export default function CalendarPage() {
                                         if (!b.completed) return false;
                                         const textMatch = (b.content || '').toLowerCase().includes(task.text.toLowerCase());
                                         const tagMatch = task.tag ? (b.tag === task.tag) : true;
-                                        return textMatch && tagMatch;
+                                        const diffMatch = task.difficulty ? ((b.difficulty || 'medium') === task.difficulty) : true;
+                                        return textMatch && tagMatch && diffMatch;
                                       });
                                       return (
                                         <div key={idx} className={cn(
                                           "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                                           isDone ? "bg-green-500/20 text-green-500" : "bg-zinc-800 text-zinc-500"
                                         )}>
-                                          {task.text}{task.tag ? ` (${task.tag})` : ''}
+                                          {task.text}{task.tag ? ` (${task.tag})` : ''}{task.difficulty ? ` [${task.difficulty}]` : ''}
                                         </div>
                                       );
                                     })}

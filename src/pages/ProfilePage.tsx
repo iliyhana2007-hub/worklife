@@ -21,7 +21,7 @@ import {
   Leaf,
   Shield
 } from 'lucide-react';
-import { useStore, type TaskTag } from '../store/useStore';
+import { useStore, type TaskTag, type Difficulty } from '../store/useStore';
 import { calculateLevel, calculateHabitReward } from '../utils/xpUtils';
 import { cn } from '@/lib/utils';
 import { LevelUpHeader } from '@/components/LevelUpHeader';
@@ -53,13 +53,15 @@ export default function ProfilePage() {
     isHardcore: false,
     dailyPlan: {
       typeTasks: { work: 0, life: 0 },
-      specificTasks: [] as { text: string; tag?: TaskTag }[],
+      typeDifficulty: {} as Partial<Record<TaskTag, Difficulty>>,
+      specificTasks: [] as { text: string; tag?: TaskTag; difficulty?: Difficulty }[],
       habits: [] as string[]
     }
   });
 
   const [tempSpecificTask, setTempSpecificTask] = useState('');
   const [tempSpecificTaskTag, setTempSpecificTaskTag] = useState<TaskTag>('work');
+  const [tempSpecificTaskDifficulty, setTempSpecificTaskDifficulty] = useState<Difficulty>('medium');
 
   const calculateMultiplier = (duration: number, isHardcore: boolean) => {
     const base = 1.0 + (duration / 14); // 2 days -> 1.14, 14 days -> 2.0
@@ -716,6 +718,26 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <span className="text-[9px] font-bold text-zinc-500 uppercase">Задач Work</span>
+                          <div className="flex gap-1">
+                            {(['low','medium','high'] as Difficulty[]).map(d => (
+                              <button
+                                key={`work-${d}`}
+                                onClick={() => setNewMarathon({
+                                  ...newMarathon,
+                                  dailyPlan: { 
+                                    ...newMarathon.dailyPlan, 
+                                    typeDifficulty: { ...newMarathon.dailyPlan.typeDifficulty, work: d } 
+                                  }
+                                })}
+                                className={cn(
+                                  "px-2 py-1 rounded-lg text-[10px] uppercase font-bold border",
+                                  newMarathon.dailyPlan.typeDifficulty?.work === d ? "bg-yellow-500 text-black border-yellow-500" : "bg-zinc-900 text-zinc-400 border-zinc-700"
+                                )}
+                              >
+                                {d === 'low' ? 'Низк' : d === 'medium' ? 'Сред' : 'Выс'}
+                              </button>
+                            ))}
+                          </div>
                         <div className="flex items-center gap-3">
                           <button 
                             onClick={() => setNewMarathon({
@@ -742,6 +764,26 @@ export default function ProfilePage() {
                       </div>
                       <div className="space-y-2">
                         <span className="text-[9px] font-bold text-zinc-500 uppercase">Задач Life</span>
+                          <div className="flex gap-1">
+                            {(['low','medium','high'] as Difficulty[]).map(d => (
+                              <button
+                                key={`life-${d}`}
+                                onClick={() => setNewMarathon({
+                                  ...newMarathon,
+                                  dailyPlan: { 
+                                    ...newMarathon.dailyPlan, 
+                                    typeDifficulty: { ...newMarathon.dailyPlan.typeDifficulty, life: d } 
+                                  }
+                                })}
+                                className={cn(
+                                  "px-2 py-1 rounded-lg text-[10px] uppercase font-bold border",
+                                  newMarathon.dailyPlan.typeDifficulty?.life === d ? "bg-yellow-500 text-black border-yellow-500" : "bg-zinc-900 text-zinc-400 border-zinc-700"
+                                )}
+                              >
+                                {d === 'low' ? 'Низк' : d === 'medium' ? 'Сред' : 'Выс'}
+                              </button>
+                            ))}
+                          </div>
                         <div className="flex items-center gap-3">
                           <button 
                             onClick={() => setNewMarathon({
@@ -793,6 +835,20 @@ export default function ProfilePage() {
                             </button>
                           ))}
                         </div>
+                        <div className="flex gap-1">
+                          {(['low','medium','high'] as Difficulty[]).map(d => (
+                            <button
+                              key={`spec-${d}`}
+                              onClick={() => setTempSpecificTaskDifficulty(d)}
+                              className={cn(
+                                "px-2 py-1 rounded-lg text-[10px] uppercase font-bold border",
+                                tempSpecificTaskDifficulty === d ? "bg-yellow-500 text-black border-yellow-500" : "bg-zinc-900 text-zinc-400 border-zinc-700"
+                              )}
+                            >
+                              {d === 'low' ? 'Низк' : d === 'medium' ? 'Сред' : 'Выс'}
+                            </button>
+                          ))}
+                        </div>
                         <button 
                           onClick={() => {
                             if (!tempSpecificTask.trim()) return;
@@ -800,7 +856,7 @@ export default function ProfilePage() {
                               ...newMarathon,
                               dailyPlan: {
                                 ...newMarathon.dailyPlan,
-                                specificTasks: [...newMarathon.dailyPlan.specificTasks, { text: tempSpecificTask.trim(), tag: tempSpecificTaskTag }]
+                                specificTasks: [...newMarathon.dailyPlan.specificTasks, { text: tempSpecificTask.trim(), tag: tempSpecificTaskTag, difficulty: tempSpecificTaskDifficulty }]
                               }
                             });
                             setTempSpecificTask('');
@@ -810,9 +866,10 @@ export default function ProfilePage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {newMarathon.dailyPlan.specificTasks.map((t, idx) => (
-                          <div key={`${t.text}-${t.tag}-${idx}`} className="bg-zinc-900 border border-zinc-700 px-2 py-1 rounded-lg flex items-center gap-2">
+                          <div key={`${t.text}-${t.tag}-${t.difficulty}-${idx}`} className="bg-zinc-900 border border-zinc-700 px-2 py-1 rounded-lg flex items-center gap-2">
                             <span className="text-[10px] text-zinc-300">{t.text}</span>
                             {t.tag && <span className="text-[10px] text-yellow-500 font-bold uppercase">{t.tag}</span>}
+                            {t.difficulty && <span className="text-[10px] text-emerald-400 font-bold uppercase">{t.difficulty}</span>}
                             <button onClick={() => setNewMarathon({
                               ...newMarathon,
                               dailyPlan: {
