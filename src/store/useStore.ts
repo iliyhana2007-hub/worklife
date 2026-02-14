@@ -715,17 +715,34 @@ export const useStore = create<AppState>()(
       updateMarathonProgress: () =>
         set((state) => {
           if (!state.activeMarathonId) return state;
-          const marathon = state.marathons.find(m => m.id === state.activeMarathonId);
-          if (!marathon || marathon.status !== 'active') return state;
+          const found = state.marathons.find(m => m.id === state.activeMarathonId);
+          if (!found || found.status !== 'active') return state;
+          let mar = found;
 
           const todayStr = new Date().toISOString().split('T')[0];
+          
+          // Normalize endDate to be inclusive based on multiplier-derived duration
+          try {
+            const start = new Date(mar.startDate);
+            const base = mar.isHardcore ? (mar.multiplier - 1.5) : (mar.multiplier - 1.0);
+            let approxDuration = Math.round(base * 14);
+            approxDuration = Math.max(mar.isHardcore ? 3 : 2, Math.min(14, approxDuration));
+            const desiredEnd = new Date(start);
+            desiredEnd.setDate(start.getDate() + (approxDuration - 1)); // inclusive
+            const desiredEndStr = desiredEnd.toISOString();
+            if (mar.endDate !== desiredEndStr) {
+              const corrected = { ...mar, endDate: desiredEndStr };
+              mar = corrected;
+              state.marathons = state.marathons.map(m => m.id === corrected.id ? corrected : m);
+            }
+          } catch {}
           
           // Helper to check if a specific date was completed according to plan
           const checkDateCompletion = (dateStr: string) => {
             const dayData = state.days[dateStr];
             if (!dayData) return false;
             
-            const { dailyPlan } = marathon;
+            const { dailyPlan } = mar;
             
             // 1. Type tasks
             if (dailyPlan.typeTasks) {
@@ -768,10 +785,11 @@ export const useStore = create<AppState>()(
           };
 
           // Re-calculate all days from start until today (or date)
-          const start = new Date(marathon.startDate);
+          const start = new Date(mar.startDate);
           const current = new Date(todayStr);
           const newCompletedDays: string[] = [];
           const newMissedDays: string[] = [];
+          
           
           // Iterate through each day of the marathon up to today
           const tempDate = new Date(start);
@@ -793,18 +811,18 @@ export const useStore = create<AppState>()(
           }
 
           const newFailureCount = newMissedDays.length;
-          let newStatus: 'active' | 'failed' | 'completed' = marathon.status;
+          let newStatus: 'active' | 'failed' | 'completed' = mar.status;
 
           // Failure logic: 
           // Hardcore: any miss fails
           // Normal: 2 consecutive misses fail
-          const isFailed = marathon.isHardcore ? newFailureCount > 0 : maxConsecutiveMisses >= 2;
+          const isFailed = mar.isHardcore ? newFailureCount > 0 : maxConsecutiveMisses >= 2;
           
           if (isFailed) {
             newStatus = 'failed';
           } else {
             // Check if marathon is finished successfully
-            const end = new Date(marathon.endDate);
+            const end = new Date(mar.endDate);
             if (current >= end) {
               newStatus = 'completed';
             }

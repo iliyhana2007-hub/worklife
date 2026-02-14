@@ -69,7 +69,7 @@ export default function ProfilePage() {
   const handleStartMarathon = () => {
     if (!newMarathon.title) return;
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + newMarathon.duration);
+    endDate.setDate(endDate.getDate() + (newMarathon.duration - 1)); // inclusive: today counts as day 1
     
     startMarathon({
       title: newMarathon.title,
