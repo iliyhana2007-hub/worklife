@@ -42,7 +42,7 @@ export default function HabitsPage() {
 
   return (
     <div className="min-h-full bg-black text-white p-4 pb-24">
-      <header className="pt-12 mb-8">
+      <header className="pt-20 mb-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <button 

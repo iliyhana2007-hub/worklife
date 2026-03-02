@@ -1144,7 +1144,7 @@ export default function CalendarPage() {
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
                 className="fixed inset-0 bg-black z-50 flex flex-col"
             >
-                <div className="flex justify-between items-center px-4 pt-4 pb-2 relative min-h-[50px] pr-14">
+                <div className="flex justify-between items-center px-4 pt-12 pb-2 relative min-h-[50px] pr-14">
                     <button 
                         onClick={saveAndClose}
                         className="flex items-center gap-1 text-[#FFD60A] active:opacity-60 transition-opacity z-10"
@@ -1153,7 +1153,7 @@ export default function CalendarPage() {
                         <span className="text-[17px] font-medium leading-none mb-0.5">Назад</span>
                     </button>
 
-                    <div className="absolute inset-x-0 bottom-2 flex flex-col items-center justify-center pointer-events-none">
+                    <div className="absolute inset-x-0 bottom-2 flex flex-col items-center justify-center pointer-events-none pt-12">
                         <span className="text-zinc-500 text-[12px] font-medium">
                             {editingMonthNote 
                                 ? (monthNoteTarget ? format(monthNoteTarget, 'd MMMM yyyy', { locale: ru }) : 'Итоги месяца') 
