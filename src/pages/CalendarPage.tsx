@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { 
   useStore, 
-  type DayStatus, 
+  type DayData, 
   type TodoItem,
   type ContentBlock, 
   type TaskTag,
@@ -104,11 +104,9 @@ const StatsWidget = ({
 // --- Mini Month Component (for Year View) ---
 const MiniMonth = ({ 
   month, 
-  daysData, 
   onSelect 
 }: { 
   month: Date; 
-  daysData: Record<string, DayStatus>; 
   onSelect: () => void;
 }) => {
   const start = startOfMonth(month);
@@ -132,8 +130,6 @@ const MiniMonth = ({
         {blanks.map((_, i) => <div key={i} />)}
         {days.map(date => {
             const dateKey = format(date, 'yyyy-MM-dd');
-            const isFuture = isAfter(startOfDay(date), startOfDay(new Date()));
-            const status = isFuture ? undefined : daysData[dateKey];
             const isCurrent = isToday(date);
             
             return (
@@ -141,9 +137,7 @@ const MiniMonth = ({
                     key={dateKey} 
                     className={cn(
                         "aspect-square rounded-full flex items-center justify-center text-[5px] font-medium select-none",
-                        status === 'good' && "bg-white text-black",
-                        status === 'bad' && "bg-red-500 text-white",
-                        status === 'neutral' && isCurrent && "bg-red-500 text-white"
+                        isCurrent && "bg-red-500 text-white"
                     )}
                 >
                     {format(date, 'd')}
@@ -158,15 +152,12 @@ const MiniMonth = ({
 // --- Month View Component ---
 const MonthView = ({
   monthDate,
-  days,
   onDayClick,
-  onCycleStatus,
   openMonthNote
 }: {
   monthDate: Date;
-  days: Record<string, { status: DayStatus; note?: string }>;
+  days: Record<string, DayData>;
   onDayClick: (date: Date) => void;
-  onCycleStatus: (date: Date, e: React.MouseEvent) => void;
   openMonthNote: (date: Date) => void;
 }) => {
   const { marathons, activeMarathonId } = useStore();
@@ -201,14 +192,14 @@ const MonthView = ({
       }, 300); // Reduced to 300ms for faster response
   };
 
-  const handlePointerUp = (date: Date, e: React.PointerEvent) => {
+  const handlePointerUp = (date: Date) => {
       if (longPressTimer.current) {
           clearTimeout(longPressTimer.current);
           longPressTimer.current = null;
       }
       
       if (!isLongPress.current) {
-          onCycleStatus(date, e as any);
+          onDayClick(date);
       }
   };
 
@@ -266,10 +257,7 @@ const MonthView = ({
                         if (!date) return <div key={`blank-${weekIndex}-${dayIdx}`} />;
                         
                         const dateKey = format(date, 'yyyy-MM-dd');
-                        const dayData = days[dateKey];
                         const isFuture = isAfter(startOfDay(date), startOfDay(new Date()));
-                        const status = isFuture ? 'neutral' : (dayData?.status || 'neutral');
-                        const isTodayDate = isToday(date);
                         
                         // Check if this date is part of an active marathon
                         const isMarathonDay = activeMarathon && 
@@ -286,17 +274,14 @@ const MonthView = ({
                             <motion.button 
                               whileTap={!isFuture ? { scale: 0.9 } : undefined}
                               onPointerDown={!isFuture ? () => handlePointerDown(date) : undefined}
-                              onPointerUp={!isFuture ? (e) => handlePointerUp(date, e as any) : undefined}
+                              onPointerUp={!isFuture ? () => handlePointerUp(date) : undefined}
                               onPointerLeave={!isFuture ? handlePointerCancel : undefined}
                               onPointerCancel={!isFuture ? handlePointerCancel : undefined}
                               className="w-full h-full flex items-center justify-center relative z-10 touch-manipulation"
                             >
                                 <div className={cn(
                                     "w-8 h-8 flex items-center justify-center rounded-full text-[17px] font-normal transition-all duration-200 pointer-events-none relative",
-                                    status === 'neutral' && isTodayDate && "border border-white text-white font-semibold", 
-                                    status === 'neutral' && !isTodayDate && "text-white",
-                                    status === 'good' && "bg-white text-black font-semibold", 
-                                    status === 'bad' && "bg-red-500 text-white font-semibold", 
+                                    "text-white",
                                 )}>
                                     {format(date, 'd')}
                                     
@@ -355,14 +340,12 @@ const InfiniteMonthScroll = ({
   onVisibleDateChange,
   days,
   onDayClick,
-  onCycleStatus,
   openMonthNote
 }: {
   initialDate: Date;
   onVisibleDateChange: (date: Date) => void;
-  days: Record<string, { status: DayStatus; note?: string }>;
+  days: Record<string, DayData>;
   onDayClick: (date: Date) => void;
-  onCycleStatus: (date: Date, e: React.MouseEvent) => void;
   openMonthNote: (date: Date) => void;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -471,7 +454,6 @@ const InfiniteMonthScroll = ({
           monthDate={month}
           days={days}
           onDayClick={onDayClick}
-          onCycleStatus={onCycleStatus}
           openMonthNote={openMonthNote}
         />
       ))}
@@ -632,7 +614,6 @@ export default function CalendarPage() {
   const { 
     days, 
     monthNotes, 
-    setDayStatus, 
     setDayNote, 
     setDayBlocks, 
     setMonthNote, 
@@ -679,12 +660,8 @@ export default function CalendarPage() {
     const validDays = periodDays.filter(d => isBefore(d, new Date()) || isToday(d));
     
     let good = 0, bad = 0, neutral = 0;
-    validDays.forEach(d => {
-      const dateKey = format(d, 'yyyy-MM-dd');
-      const status = days[dateKey]?.status || 'neutral';
-      if (status === 'good') good++;
-      else if (status === 'bad') bad++;
-      else neutral++;
+    validDays.forEach(() => {
+      neutral++;
     });
 
     return { good, bad, neutral, total: validDays.length };
@@ -754,16 +731,6 @@ export default function CalendarPage() {
     setSelectedDate(date);
     loadData(date, false);
     setIsNoteOpen(true);
-  };
-
-  const cycleStatus = (date: Date, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isAfter(startOfDay(date), startOfDay(new Date()))) return;
-
-    const dateKey = format(date, 'yyyy-MM-dd');
-    const currentStatus = days[dateKey]?.status || 'neutral';
-    const nextStatus: DayStatus = currentStatus === 'neutral' ? 'good' : currentStatus === 'good' ? 'bad' : 'neutral';
-    setDayStatus(dateKey, nextStatus);
   };
 
   const openMonthNote = (monthDate: Date) => {
@@ -925,7 +892,6 @@ export default function CalendarPage() {
         onVisibleDateChange={setCurrentDate}
         days={days}
         onDayClick={handleDayClick}
-        onCycleStatus={cycleStatus}
         openMonthNote={openMonthNote}
       />
     );
@@ -943,14 +909,6 @@ export default function CalendarPage() {
             <div className="grid grid-cols-3 gap-x-4 gap-y-8 p-4">
                 {months.map((month, idx) => {
                     const mStart = startOfMonth(month);
-                    const mEnd = endOfMonth(month);
-                    const mDays = eachDayOfInterval({ start: mStart, end: mEnd });
-                    const mDaysData: Record<string, DayStatus> = {};
-                    mDays.forEach(d => {
-                        const k = format(d, 'yyyy-MM-dd');
-                        if (days[k]?.status) mDaysData[k] = days[k].status;
-                    });
-
                     const isPastOrCurrent = isBefore(mStart, new Date()) || isSameMonth(mStart, new Date());
                     const monthKey = format(month, 'yyyy-MM');
                     const isExpanded = expandedYearNotes[monthKey];
@@ -962,7 +920,6 @@ export default function CalendarPage() {
                         <div key={idx} className="flex flex-col gap-2">
                              <MiniMonth 
                                 month={month} 
-                                daysData={mDaysData}
                                 onSelect={() => {
                                     setCurrentDate(month);
                                     setView('month');
@@ -1143,8 +1100,9 @@ export default function CalendarPage() {
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
                 className="fixed inset-0 bg-black z-50 flex flex-col"
+                style={{ paddingTop: 'env(safe-area-inset-top)' }}
             >
-                <div className="flex justify-between items-center px-4 pt-12 pb-2 relative min-h-[50px] pr-14">
+                <div className="flex justify-between items-center px-4 pt-4 pb-2 relative min-h-[50px] pr-14">
                     <button 
                         onClick={saveAndClose}
                         className="flex items-center gap-1 text-[#FFD60A] active:opacity-60 transition-opacity z-10"
@@ -1153,7 +1111,7 @@ export default function CalendarPage() {
                         <span className="text-[17px] font-medium leading-none mb-0.5">Назад</span>
                     </button>
 
-                    <div className="absolute inset-x-0 bottom-2 flex flex-col items-center justify-center pointer-events-none pt-12">
+                    <div className="absolute inset-x-0 bottom-2 flex flex-col items-center justify-center pointer-events-none">
                         <span className="text-zinc-500 text-[12px] font-medium">
                             {editingMonthNote 
                                 ? (monthNoteTarget ? format(monthNoteTarget, 'd MMMM yyyy', { locale: ru }) : 'Итоги месяца') 
@@ -1185,36 +1143,6 @@ export default function CalendarPage() {
                 <div className="flex-1 px-5 pt-2 pb-20 overflow-y-auto overscroll-contain">
                     {!editingMonthNote && selectedDate && (
                       <>
-                        {/* Status Buttons */}
-                        <div className="grid grid-cols-3 gap-3 mb-4">
-                          {(['good', 'neutral', 'bad'] as DayStatus[]).map((status) => {
-                            const dateKey = format(selectedDate, 'yyyy-MM-dd');
-                            const dayData = days[dateKey];
-                            return (
-                              <button
-                                key={status}
-                                onClick={() => setDayStatus(dateKey, status)}
-                                className={cn(
-                                  "py-3 rounded-2xl border transition-all flex flex-col items-center gap-1",
-                                  dayData?.status === status 
-                                    ? status === 'good' ? "bg-white border-white text-black shadow-lg shadow-white/10"
-                                      : status === 'bad' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/10"
-                                      : "bg-zinc-800 border-zinc-700 text-white"
-                                    : "bg-zinc-900 border-zinc-800 text-zinc-500"
-                                )}
-                              >
-                                <div className={cn(
-                                  "w-2 h-2 rounded-full",
-                                  status === 'good' ? "bg-current" : status === 'bad' ? "bg-current" : "bg-zinc-700"
-                                )} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">
-                                  {status === 'good' ? 'Good' : status === 'bad' ? 'Bad' : 'Neutral'}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-
                         {activeMarathon && (
                           <div className="mx-4 mb-4 p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-2xl">
                             <div className="flex items-center gap-2 mb-3">

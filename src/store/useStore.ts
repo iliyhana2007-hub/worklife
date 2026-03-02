@@ -28,7 +28,6 @@ export interface ContentBlock {
 }
 
 export interface DayData {
-  status: DayStatus;
   note?: string;
   todos?: TodoItem[];
   blocks?: ContentBlock[];
@@ -164,7 +163,6 @@ export interface AppState {
   // Calendar
   days: Record<string, DayData>; // key: YYYY-MM-DD
   monthNotes: Record<string, MonthData | string>; // key: YYYY-MM (string for backward compat)
-  setDayStatus: (date: string, status: DayStatus) => void;
   setDayNote: (date: string, note: string, todos?: TodoItem[]) => void;
   setDayBlocks: (date: string, blocks: ContentBlock[]) => void;
   setMonthNote: (month: string, note: string, todos?: TodoItem[]) => void;
@@ -372,14 +370,6 @@ export const useStore = create<AppState>()(
         // When we import, we accept the remote timestamp
       })),
 
-      setDayStatus: (date, status) =>
-        set((state) => ({
-          days: {
-            ...state.days,
-            [date]: { ...state.days[date], status },
-          },
-          lastModified: Date.now(),
-        })),
       setDayNote: (date, note, todos) =>
         set((state) => ({
           days: {

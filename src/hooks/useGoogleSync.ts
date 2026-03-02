@@ -69,7 +69,6 @@ export const useGoogleSync = () => {
                 })),
                 calendar: Object.entries(days).map(([date, data]) => ({
                     date,
-                    status: data.status,
                     note: data.note || '',
                     todos: data.todos ? JSON.stringify(data.todos) : '',
                     blocks: data.blocks ? JSON.stringify(data.blocks) : ''
@@ -144,7 +143,6 @@ export const useGoogleSync = () => {
 
             const importedDays = (data.calendar || []).reduce((acc: any, d: any) => {
                 acc[d.date || d.Date] = {
-                    status: d.status || d.Status,
                     note: d.note || d.Note,
                     todos: d.todos ? JSON.parse(d.todos) : undefined,
                     blocks: d.blocks ? JSON.parse(d.blocks) : undefined

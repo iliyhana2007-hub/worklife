@@ -126,7 +126,7 @@ export default function ProfilePage() {
           start, 
           end: isBefore(end, new Date()) ? end : endOfDay(new Date()) 
         }).length;
-    const goodDays = filteredDays.filter(([, d]) => d.status === 'good').length;
+    const goodDays = 0;
     
     const allCompletedTasks = filteredDays.flatMap(([date, day]) => {
       const completedBlocks = day.blocks?.filter(b => b.type === 'todo' && b.completed && b.content?.trim() !== '') || [];
