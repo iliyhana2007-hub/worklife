@@ -901,6 +901,21 @@ export const useStore = create<AppState>()(
     {
       name: 'worklife-storage-v2',
       storage: createJSONStorage(() => telegramStorage),
+      partialize: (state) => ({
+        days: state.days,
+        monthNotes: state.monthNotes,
+        counters: state.counters,
+        leads: state.leads,
+        googleSheetUrl: state.googleSheetUrl,
+        settings: state.settings,
+        habits: state.habits,
+        marathons: state.marathons,
+        activeMarathonId: state.activeMarathonId,
+        objections: state.objections,
+        techniques: state.techniques,
+        xp: state.xp,
+        lastModified: state.lastModified
+      }),
       onRehydrateStorage: () => (state) => {
         state?.updateMarathonProgress();
       },
